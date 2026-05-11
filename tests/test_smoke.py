@@ -19,11 +19,14 @@ def test_imports() -> None:
     import podcaster_ai.deliver
     import podcaster_ai.run
     from podcaster_ai.pipeline.sources import (
-        portswigger_rss,
-        hackerone_hacktivity,
-        projectdiscovery_releases,
-        nvd_recent,
+        ai_security_news,
         cisa_kev,
+        conferences,
+        hackerone_hacktivity,
+        hardware_hacking,
+        nvd_recent,
+        portswigger_rss,
+        projectdiscovery_releases,
         vendor_rss,
         youtube_transcripts,
     )

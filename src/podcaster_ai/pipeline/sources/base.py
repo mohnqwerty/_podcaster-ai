@@ -19,7 +19,10 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "nvd": 0.85,
     "cisa_kev": 1.0,
     "vendor_rss": 0.6,
-    "youtube": 0.5,
+    "youtube": 1.2,        # Prioritized primary resource
+    "conferences": 1.1,    # High importance for events
+    "ai_security": 1.0,
+    "hardware_hacking": 1.0,
 }
 
 DEFAULT_TIMEOUT = httpx.Timeout(20.0, connect=10.0)

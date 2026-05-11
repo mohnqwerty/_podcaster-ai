@@ -2,7 +2,7 @@
 
 A plug-and-play daily podcast generator that fetches the latest bug-bounty, vulnerability research, and security releases, synthesizes them with an LLM into a tight two-host script, renders audio via TTS, and delivers episodes to Telegram — all from a single Docker container on your VPS.
 
-**What you get**: A ~10-minute daily podcast with hosts Maya (analyst) and Arjun (practitioner) discussing the day's top findings from PortSwigger, HackerOne, ProjectDiscovery, NVD, CISA KEV, and optional vendor feeds. Scheduled via systemd timer or cron. No external SaaS dependencies beyond your LLM and TTS providers.
+**What you get**: A ~10-minute daily podcast with hosts Maya (analyst) and Arjun (practitioner) discussing the day's top findings. The pipeline covers general bug bounty, **AI Security** (MITRE ATLAS, LLM vulnerabilities), **Hardware Hacking** (firmware, side-channels), and **Security Conferences** (Black Hat, DEF CON, Hack.lu). It prioritizes primary resources like Black Hat and DEF CON YouTube transcripts for deep-dive analysis. Scheduled via systemd timer or cron. No external SaaS dependencies beyond your LLM and TTS providers.
 
 ---
 
@@ -261,7 +261,10 @@ Or with dry-run:
 - **ProjectDiscovery Releases** — Nuclei and nuclei-templates updates
 - **NVD Recent CVEs** — High-severity CVEs (CVSS ≥ 7.0 by default)
 - **CISA KEV** — Known Exploited Vulnerabilities catalog
-- **YouTube Transcripts** (optional) — Recent episodes from security channels
+- **YouTube Transcripts** (primary) — Recent episodes from Black Hat, DEF CON, and other security channels
+- **AI Security News** — MITRE ATLAS and specialized AI security feeds
+- **Hardware Hacking** — Firmware, side-channel, and physical security news
+- **Conference News** — Upcoming events and news from Black Hat, DEF CON, and Hack.lu (Luxembourg)
 
 ### Vendor Advisory RSS Feeds (Optional)
 
@@ -273,12 +276,13 @@ VENDOR_RSS_FEEDS=https://www.microsoft.com/security/rss/,https://security.apple.
 
 Comma-separated list of RSS feed URLs. Each feed is fetched and items are ranked by recency and source weight.
 
-### YouTube Channels (Optional)
+### YouTube Channels (Primary Resources)
 
-Pull recent episode transcripts from security YouTube channels:
+Pull recent episode transcripts from primary security channels like Black Hat and DEF CON:
 
 ```bash
-YOUTUBE_CHANNEL_IDS=UCkRfArvrzheW2E7b6SVV7vA,UCO7lz_kxFgMIWF7BtMKsqkA
+# Defaults include Black Hat (UCS90qS2YOo6HQC3uH9_95MA) and DEF CON (UC6Om9kAkl32dWlDS_lX9W3Q)
+YOUTUBE_CHANNEL_IDS=UCS90qS2YOo6HQC3uH9_95MA,UC6Om9kAkl32dWlDS_lX9W3Q
 YOUTUBE_LOOKBACK_DAYS=14
 ```
 

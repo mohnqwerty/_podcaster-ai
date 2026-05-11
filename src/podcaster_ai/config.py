@@ -64,7 +64,7 @@ class Settings(BaseSettings):
 
     # ---------- Sources ----------
     vendor_rss_feeds: str = ""
-    youtube_channel_ids: str = ""
+    youtube_channel_ids: str = "UCS90qS2YOo6HQC3uH9_95MA,UC6Om9kAkl32dWlDS_lX9W3Q"
     youtube_lookback_days: int = 14
     nvd_min_cvss: float = 7.0
     nvd_lookback_hours: int = 72
