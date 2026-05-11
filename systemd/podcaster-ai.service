@@ -1,0 +1,22 @@
+[Unit]
+Description=Daily Recon — bug-bounty podcast generator (one-shot)
+Documentation=https://github.com/mohnqwerty/_podcaster-ai
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+# Adjust WorkingDirectory to where you cloned the repo on the VPS.
+WorkingDirectory=/opt/_podcaster-ai
+ExecStart=/usr/bin/docker compose run --rm podcaster
+# Reasonable limits — the job is bursty (LLM + TTS) and otherwise idle.
+TimeoutStartSec=30min
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

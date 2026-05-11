@@ -1,0 +1,16 @@
+[Unit]
+Description=Daily fire schedule for Daily Recon podcast generator
+Documentation=https://github.com/mohnqwerty/_podcaster-ai
+
+[Timer]
+# Fires once per day at 07:30 local time (default tuned for Asia/Kolkata).
+# To change, edit OnCalendar below or `systemctl edit podcaster-ai.timer`.
+OnCalendar=*-*-* 07:30:00
+# Account for VPS reboots / sleep — run at next opportunity if a fire was missed.
+Persistent=true
+# Stagger by up to 5 minutes to avoid thundering-herd on shared infra.
+RandomizedDelaySec=5m
+Unit=podcaster-ai.service
+
+[Install]
+WantedBy=timers.target

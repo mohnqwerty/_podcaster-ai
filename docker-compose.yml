@@ -1,0 +1,16 @@
+services:
+  podcaster:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: podcaster-ai:latest
+    container_name: podcaster-ai
+    env_file:
+      - .env
+    volumes:
+      - ./out:/app/out
+    # One-shot job: timer/cron on the host drives invocation.
+    restart: "no"
+    # Keep stdout/stderr line-buffered for journald / docker logs.
+    tty: false
+    stdin_open: false
