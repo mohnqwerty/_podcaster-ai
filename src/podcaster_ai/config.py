@@ -19,7 +19,7 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-LLMProvider = Literal["deepseek", "openrouter", "kimi", "qwen", "gemini"]
+LLMProvider = Literal["deepseek", "openrouter", "kimi", "qwen", "gemini", "groq"]
 TTSProvider = Literal["edge", "elevenlabs"]
 
 
@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     moonshot_api_base: Optional[str] = None
     dashscope_api_key: Optional[str] = None
     gemini_api_key: Optional[str] = None
+    groq_api_key: Optional[str] = None
 
     # ---------- TTS ----------
     tts_provider: TTSProvider = "edge"
@@ -64,7 +65,7 @@ class Settings(BaseSettings):
 
     # ---------- Sources ----------
     vendor_rss_feeds: str = ""
-    youtube_channel_ids: str = ""
+    youtube_channel_ids: str = "UCS90qS2YOo6HQC3uH9_95MA,UC6Om9kAkl32dWlDS_lX9W3Q"
     youtube_lookback_days: int = 14
     nvd_min_cvss: float = 7.0
     nvd_lookback_hours: int = 72
@@ -103,6 +104,7 @@ class Settings(BaseSettings):
             "kimi": self.moonshot_api_key,
             "qwen": self.dashscope_api_key,
             "gemini": self.gemini_api_key,
+            "groq": self.groq_api_key,
         }[self.llm_provider]
 
     def llm_endpoint(self) -> str:
@@ -114,6 +116,7 @@ class Settings(BaseSettings):
             "kimi": self.moonshot_api_base or "https://api.moonshot.cn/v1",
             "qwen": "https://dashscope.aliyuncs.com/compatible-mode/v1",
             "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/",
+            "groq": "https://api.groq.com/openai/v1",
         }[self.llm_provider]
 
 
