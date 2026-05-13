@@ -2,7 +2,7 @@
 
 A plug-and-play daily podcast generator that fetches the latest bug-bounty, vulnerability research, and security releases, synthesizes them with an LLM into a tight two-host script, renders audio via TTS, and delivers episodes to Telegram — all from a single Docker container on your VPS.
 
-**What you get**: A ~10-minute daily podcast with hosts Maya (analyst) and Arjun (practitioner) discussing the day's top findings from PortSwigger, HackerOne, ProjectDiscovery, NVD, CISA KEV, and optional vendor feeds. Scheduled via systemd timer or cron. No external SaaS dependencies beyond your LLM and TTS providers.
+**What you get**: A ~10-minute daily podcast with hosts Maya (analyst) and Arjun (practitioner) discussing the day's top findings. The pipeline covers general bug bounty, **AI Security** (MITRE ATLAS, LLM vulnerabilities), **Hardware Hacking** (firmware, side-channels), and **Security Conferences** (Black Hat, DEF CON, Hack.lu). It prioritizes primary resources like Black Hat and DEF CON YouTube transcripts for deep-dive analysis. Scheduled via systemd timer or cron. No external SaaS dependencies beyond your LLM and TTS providers.
 
 ---
 
@@ -11,7 +11,7 @@ A plug-and-play daily podcast generator that fetches the latest bug-bounty, vuln
 ### Prerequisites
 
 - A VPS or local machine with Docker and Docker Compose installed
-- An LLM API key (DeepSeek, OpenRouter, Moonshot Kimi, Qwen, or Google Gemini)
+- An LLM API key (DeepSeek, OpenRouter, Moonshot Kimi, Qwen, Google Gemini, or Groq)
 - A TTS provider (edge-tts is free; ElevenLabs is optional)
 - A Telegram bot token and chat ID
 
@@ -65,6 +65,7 @@ A plug-and-play daily podcast generator that fetches the latest bug-bounty, vuln
 | `MOONSHOT_API_KEY` | Moonshot Kimi API key (if using Kimi) | (your key) |
 | `DASHSCOPE_API_KEY` | Qwen API key (if using Qwen) | (your key) |
 | `GEMINI_API_KEY` | Google Gemini API key (if using Gemini) | (your key) |
+| `GROQ_API_KEY` | Groq API key (if using Groq) | (your key) |
 | `TTS_PROVIDER` | Which TTS backend to use | `edge` |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token (from BotFather) | (your token) |
 | `TELEGRAM_CHAT_ID` | Telegram chat ID to receive episodes | (your chat ID) |
@@ -109,6 +110,7 @@ All providers expose an OpenAI-compatible REST interface. Switch providers by ch
 | **Moonshot Kimi** | `https://api.moonshot.cn/v1` | `moonshot-v1-32k` | `MOONSHOT_API_KEY` | Chinese LLM; excellent context window |
 | **Qwen** | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` | `DASHSCOPE_API_KEY` | Alibaba; good for Chinese content |
 | **Google Gemini** | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-2.5-flash` | `GEMINI_API_KEY` | Multimodal, fast, free tier available |
+| **Groq** | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | `GROQ_API_KEY` | Extremely fast LPU inference; OpenAI-compatible; great latency for daily runs |
 
 **Example configurations:**
 
@@ -127,6 +129,11 @@ OPENROUTER_API_KEY=sk-or-...
 LLM_PROVIDER=gemini
 LLM_MODEL=gemini-2.5-flash
 GEMINI_API_KEY=AIza...
+
+# Groq (fast LPU inference)
+LLM_PROVIDER=groq
+LLM_MODEL=llama-3.3-70b-versatile
+GROQ_API_KEY=gsk_...
 ```
 
 ---
@@ -261,7 +268,54 @@ Or with dry-run:
 - **ProjectDiscovery Releases** — Nuclei and nuclei-templates updates
 - **NVD Recent CVEs** — High-severity CVEs (CVSS ≥ 7.0 by default)
 - **CISA KEV** — Known Exploited Vulnerabilities catalog
-- **YouTube Transcripts** (optional) — Recent episodes from security channels
+- **YouTube Transcripts** (primary) — Recent episodes from Black Hat, DEF CON, and other security channels
+- **AI Security News** — MITRE ATLAS and specialized AI security feeds
+- **Hardware Hacking** — Firmware, side-channel, and physical security news
+- **Conference News** — Upcoming events and news from Black Hat, DEF CON, and Hack.lu (Luxembourg)
+- **Mastodon** (optional, Tier 3 leads) — Recent statuses from your home timeline, bookmarks, and configured hashtags on a Mastodon-compatible instance (default: infosec.exchange). Enabled by setting `MASTODON_ACCESS_TOKEN`.
+
+### Mastodon (Optional, Tier 3 Leads)
+
+Mastodon timelines are an excellent leading indicator for in-the-wild exploits,
+zero-days, and hot CVEs surfaced by the security community before they hit the
+formal advisory channels. Because anyone can post anything, this source is
+classified as **Tier 3**: items must always be cross-checked against
+authoritative sources (NVD, vendor advisories, PortSwigger, CISA KEV, etc.)
+before being asserted as fact. The original Mastodon URL is always cited in
+the show notes.
+
+**1. Generate an access token.** On your Mastodon instance (e.g.
+`https://infosec.exchange`):
+
+1. Log in, then go to **Preferences → Development → New application**.
+2. Give the app any name (e.g. `podcaster-ai`).
+3. Tick the following scopes (and only these):
+   - `read:statuses`
+   - `read:lists`
+   - `read:accounts`
+   - `read:bookmarks`
+   - `read:favourites`
+4. Submit, open the app, then copy the **Your access token** value into
+   `MASTODON_ACCESS_TOKEN` in `.env`.
+
+**2. Configure the source.** In `.env`:
+
+```bash
+MASTODON_BASE_URL=https://infosec.exchange
+MASTODON_ACCESS_TOKEN=<your token>
+MASTODON_HASHTAGS=infosec,cve,bugbounty,0day,threatintel
+MASTODON_INCLUDE_HOME=true
+MASTODON_INCLUDE_BOOKMARKS=true
+MASTODON_HOURS=48
+```
+
+If `MASTODON_ACCESS_TOKEN` is empty the source is silently disabled — the
+pipeline still runs cleanly. Each enabled endpoint (home, per-tag, bookmarks)
+is fetched fail-soft; a single failing endpoint never breaks the run.
+
+The summary line of every Mastodon item carries an engagement signal
+(`[reblogs=R favs=F replies=P]`) so the ranking stage can use it as a
+secondary score.
 
 ### Vendor Advisory RSS Feeds (Optional)
 
@@ -273,12 +327,13 @@ VENDOR_RSS_FEEDS=https://www.microsoft.com/security/rss/,https://security.apple.
 
 Comma-separated list of RSS feed URLs. Each feed is fetched and items are ranked by recency and source weight.
 
-### YouTube Channels (Optional)
+### YouTube Channels (Primary Resources)
 
-Pull recent episode transcripts from security YouTube channels:
+Pull recent episode transcripts from primary security channels like Black Hat and DEF CON:
 
 ```bash
-YOUTUBE_CHANNEL_IDS=UCkRfArvrzheW2E7b6SVV7vA,UCO7lz_kxFgMIWF7BtMKsqkA
+# Defaults include Black Hat (UCS90qS2YOo6HQC3uH9_95MA) and DEF CON (UC6Om9kAkl32dWlDS_lX9W3Q)
+YOUTUBE_CHANNEL_IDS=UCS90qS2YOo6HQC3uH9_95MA,UC6Om9kAkl32dWlDS_lX9W3Q
 YOUTUBE_LOOKBACK_DAYS=14
 ```
 
