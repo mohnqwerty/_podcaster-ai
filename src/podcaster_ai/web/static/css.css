@@ -1,0 +1,19 @@
+/* Minimal app-side styling. Most layout uses Tailwind via CDN.
+   This file exists for future overrides without touching the templates. */
+
+audio::-webkit-media-controls-panel {
+  background-color: #0f172a;
+}
+
+.prose code {
+  background: #0b1220;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+}
+
+.prose a {
+  color: #93c5fd;
+}
+.prose a:hover {
+  color: #bfdbfe;
+}

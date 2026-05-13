@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block title %}Job #{{ job.id }} — {{ podcast_title }}{% endblock %}
+{% block content %}
+<div class="mb-4">
+  <a href="/episodes" class="text-sm text-slate-400 hover:text-white">&larr; All episodes</a>
+  <h1 class="mt-2 text-2xl font-semibold">Job #{{ job.id }} <span class="text-slate-500 text-base">({{ job.kind }})</span></h1>
+  <div class="text-sm text-slate-500">
+    Status:
+    <span class="font-mono">{{ job.status }}</span>
+    {% if job.started_at %}· started {{ job.started_at.strftime("%Y-%m-%d %H:%M:%S UTC") }}{% endif %}
+    {% if job.finished_at %}· finished {{ job.finished_at.strftime("%Y-%m-%d %H:%M:%S UTC") }}{% endif %}
+  </div>
+</div>
+
+<div class="rounded-2xl bg-slate-900 border border-slate-800 p-4">
+  <div class="text-xs text-slate-500 mb-2">Log tail (last 64 KB):</div>
+  <pre id="logbox"
+       hx-get="/jobs/{{ job.id }}/log"
+       hx-trigger="every 3s"
+       hx-swap="innerHTML"
+       class="max-h-[60vh] overflow-auto whitespace-pre-wrap text-xs leading-relaxed font-mono bg-slate-950 border border-slate-800 rounded p-3"
+>{{ log_text }}
+
+# status: {{ job.status }}
+</pre>
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends "layout.html" %}
+{% block title %}Episodes — {{ podcast_title }}{% endblock %}
+{% block content %}
+<div class="flex items-baseline justify-between mb-6">
+  <h1 class="text-2xl font-semibold">Episodes</h1>
+  <span class="text-sm text-slate-500">{{ total }} total</span>
+</div>
+
+{% if episodes|length == 0 %}
+  <div class="rounded-2xl bg-slate-900 border border-slate-800 p-6 text-slate-400">
+    No episodes yet. {% if current_user.is_admin() %}<a class="underline" href="/generate">Generate one now</a>.{% endif %}
+  </div>
+{% else %}
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  {% for ep in episodes %}
+    <a href="/episodes/{{ ep.episode_date.isoformat() }}"
+       class="block rounded-2xl bg-slate-900 border border-slate-800 p-4 hover:border-slate-600 transition">
+      <div class="text-xs uppercase tracking-wide text-slate-500">{{ ep.episode_date.isoformat() }}</div>
+      <div class="mt-1 text-lg font-medium">{{ ep.title or "Untitled episode" }}</div>
+      <div class="mt-2 text-xs text-slate-500">
+        {% if ep.duration_seconds %}~{{ (ep.duration_seconds // 60) }} min · {% endif %}
+        added {{ ep.created_at.strftime("%Y-%m-%d") }}
+      </div>
+    </a>
+  {% endfor %}
+</div>
+
+<div class="flex items-center justify-between mt-6 text-sm text-slate-400">
+  {% if page > 1 %}<a class="underline" href="?page={{ page - 1 }}">&larr; Newer</a>{% else %}<span></span>{% endif %}
+  <span>Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}<a class="underline" href="?page={{ page + 1 }}">Older &rarr;</a>{% else %}<span></span>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

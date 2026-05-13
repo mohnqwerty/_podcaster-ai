@@ -1,0 +1,11 @@
+{% extends "layout.html" %}
+{% block title %}{{ code }} — {{ podcast_title }}{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto rounded-2xl bg-slate-900 border border-slate-800 p-6 text-center">
+  <div class="text-5xl font-bold text-slate-500">{{ code }}</div>
+  <div class="mt-2 text-slate-300">{{ message }}</div>
+  <div class="mt-4">
+    <a href="/episodes" class="underline text-slate-300 hover:text-white">Back to episodes</a>
+  </div>
+</div>
+{% endblock %}

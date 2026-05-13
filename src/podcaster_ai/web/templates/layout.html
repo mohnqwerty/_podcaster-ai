@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ podcast_title }} — Dashboard{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="/static/css.css">
+  <meta name="referrer" content="same-origin">
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <header class="border-b border-slate-800 bg-slate-900">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="/episodes" class="text-lg font-semibold tracking-tight">
+        {{ podcast_title }} <span class="text-slate-500">/ Dashboard</span>
+      </a>
+      <nav class="flex items-center gap-4 text-sm">
+        {% if current_user %}
+          <a href="/episodes" class="hover:text-white text-slate-300">Episodes</a>
+          {% if current_user.is_admin() %}
+            <a href="/sources" class="hover:text-white text-slate-300">Sources</a>
+            <a href="/admin/users" class="hover:text-white text-slate-300">Users</a>
+            <a href="/generate" class="hover:text-white text-slate-300">Generate</a>
+          {% endif %}
+          <span class="text-slate-500">{{ current_user.username }} ({{ current_user.role }})</span>
+          <form method="post" action="/logout" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ request.cookies.get(csrf_cookie_name, '') }}">
+            <button class="text-slate-300 hover:text-white">Sign out</button>
+          </form>
+        {% else %}
+          <a href="/login" class="hover:text-white text-slate-300">Sign in</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="max-w-5xl mx-auto px-4 py-6 text-xs text-slate-600">
+    Self-hosted dashboard. Behind a reverse proxy for TLS.
+  </footer>
+</body>
+</html>

@@ -81,6 +81,21 @@ class Settings(BaseSettings):
     # ---------- Output / runtime ----------
     output_dir: Path = Path("/app/out")
     log_level: str = "INFO"
+    # When set, episode artifacts are also/instead written under <data_dir>/episodes/.
+    data_dir: Optional[Path] = None
+
+    # ---------- Web dashboard (PART B) ----------
+    dashboard_host: str = "127.0.0.1"
+    dashboard_port: int = 8000
+    # 32+ random characters; required for the dashboard to start.
+    session_secret: Optional[str] = None
+    session_cookie_secure: bool = True
+    session_cookie_name: str = "podcaster_session"
+    csrf_cookie_name: str = "podcaster_csrf"
+    bootstrap_admin_user: Optional[str] = None
+    bootstrap_admin_password: Optional[str] = None
+    # Defaults to sqlite under <data_dir>/podcaster.db when unset.
+    database_url: Optional[str] = None
 
     # --- helpers ---
 
@@ -106,6 +121,22 @@ class Settings(BaseSettings):
             "gemini": self.gemini_api_key,
             "groq": self.groq_api_key,
         }[self.llm_provider]
+
+    def effective_data_dir(self) -> Path:
+        """Where shared/persistent state lives (sqlite db, episodes/).
+
+        Falls back to OUTPUT_DIR for backwards compat with the v1/v2 layout.
+        """
+        return Path(self.data_dir) if self.data_dir else Path(self.output_dir)
+
+    def episodes_dir(self) -> Path:
+        return self.effective_data_dir() / "episodes"
+
+    def effective_database_url(self) -> str:
+        if self.database_url:
+            return self.database_url
+        db_path = self.effective_data_dir() / "podcaster.db"
+        return f"sqlite+aiosqlite:///{db_path}"
 
     def llm_endpoint(self) -> str:
         if self.llm_base_url:
