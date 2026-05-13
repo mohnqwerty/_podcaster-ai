@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+{% block title %}Sign in — {{ podcast_title }}{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow">
+  <h1 class="text-xl font-semibold mb-1">Sign in</h1>
+  <p class="text-sm text-slate-500 mb-4">Restricted dashboard.</p>
+  {% if error %}
+    <div class="mb-3 px-3 py-2 rounded bg-red-950 border border-red-900 text-red-200 text-sm">
+      {{ error }}
+    </div>
+  {% endif %}
+  <form method="post" action="/login" class="space-y-3" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ request.cookies.get(csrf_cookie_name, '') }}">
+    <div>
+      <label class="block text-sm mb-1 text-slate-300">Username</label>
+      <input name="username" required autofocus
+             class="w-full rounded bg-slate-950 border border-slate-800 px-3 py-2 focus:outline-none focus:border-slate-600">
+    </div>
+    <div>
+      <label class="block text-sm mb-1 text-slate-300">Password</label>
+      <input name="password" type="password" required
+             class="w-full rounded bg-slate-950 border border-slate-800 px-3 py-2 focus:outline-none focus:border-slate-600">
+    </div>
+    <button class="w-full rounded bg-slate-100 text-slate-900 font-medium px-3 py-2 hover:bg-white">
+      Sign in
+    </button>
+  </form>
+</div>
+{% endblock %}

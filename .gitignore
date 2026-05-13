@@ -18,10 +18,14 @@ ENV/
 
 # Local artifacts
 out/
+data/
 *.mp3
 *.wav
 *.m4a
 *.log
+*.db
+*.sqlite
+*.sqlite3
 
 # Secrets
 .env

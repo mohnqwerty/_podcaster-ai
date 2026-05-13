@@ -1,0 +1,22 @@
+[Unit]
+Description=Daily Recon — web dashboard (FastAPI/uvicorn)
+Documentation=https://github.com/mohnqwerty/_podcaster-ai
+Wants=network-online.target
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/_podcaster-ai
+# Bring the web service up (and tear it down on stop) without ever bringing
+# down the one-shot `podcaster` service used by the timer.
+ExecStart=/usr/bin/docker compose up web
+ExecStop=/usr/bin/docker compose stop web
+Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=2min
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

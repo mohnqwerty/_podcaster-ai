@@ -30,12 +30,15 @@ COPY README.md /app/README.md
 # Install the package itself (no deps re-resolution).
 RUN pip install --no-cache-dir --no-deps -e /app
 
-# Output dir, owned by non-root user.
-RUN mkdir -p /app/out && chown -R app:app /app
+# Output + persistent data dirs, owned by non-root user.
+RUN mkdir -p /app/out /app/data && chown -R app:app /app
 
 USER app
 
-ENV OUTPUT_DIR=/app/out
+ENV OUTPUT_DIR=/app/out \
+    DATA_DIR=/app/data
 
+# Default command runs the one-shot pipeline. The `web` service in
+# docker-compose overrides this with `command:` to run uvicorn instead.
 ENTRYPOINT ["python", "-m", "podcaster_ai.run"]
 CMD []

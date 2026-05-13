@@ -30,6 +30,11 @@ Style:
 - Length: 1500–1700 words total (this matches ~10 minutes spoken).
 - Cold-open hook in the first 2 lines, then a quick "today on the show…".
 - 3–5 segments mirroring the research brief, each ~250–350 words.
+- PRIMARY RESOURCES: Always give extra weight and detailed discussion to
+  content from Black Hat and DEF CON (YouTube transcripts).
+- SPECIAL SECTIONS: Ensure clear, distinct coverage of AI Security (LLM bypasses,
+  ATLAS), Hardware Hacking (firmware, side-channels), and upcoming Conferences
+  (like Hack.lu in Luxembourg).
 - Spell out CVE identifiers phonetically the FIRST time they appear in dialogue,
   then use the short form. Example: "C-V-E twenty twenty-six dash one two
   three four — CVE-2026-1234".

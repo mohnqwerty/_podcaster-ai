@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+{% block title %}Generate — {{ podcast_title }}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-semibold mb-4">Generate episode now</h1>
+<p class="text-slate-400 mb-6">
+  Runs the full pipeline (research &rarr; script &rarr; TTS &rarr; show notes
+  &rarr; deliver) as a background subprocess. Stand by &mdash; this typically
+  takes a few minutes.
+</p>
+<form method="post" action="/generate"
+      class="rounded-2xl bg-slate-900 border border-slate-800 p-4">
+  <input type="hidden" name="csrf_token" value="{{ request.cookies.get(csrf_cookie_name, '') }}">
+  <button class="rounded bg-slate-100 text-slate-900 font-medium px-4 py-2 hover:bg-white">
+    Start generation
+  </button>
+</form>
+{% endblock %}

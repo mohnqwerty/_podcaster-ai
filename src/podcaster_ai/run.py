@@ -94,6 +94,39 @@ def main(dry_run: bool = False) -> int:
             return 1
         # In dry-run, log but don't fail.
 
+    # Stage 6 (optional): publish to dashboard layout (<data_dir>/episodes/) and
+    # register the episode in the dashboard's sqlite DB. Fail-soft: if the web
+    # extras aren't installed or DATA_DIR isn't configured, this stage is a no-op.
+    try:
+        from datetime import date as _date_cls
+        ep_date = episode_date.date() if hasattr(episode_date, "date") else _date_cls.today()
+        episodes_dir = settings.episodes_dir()
+        episodes_dir.mkdir(parents=True, exist_ok=True)
+        canonical_mp3 = episodes_dir / f"{ep_date.isoformat()}.mp3"
+        canonical_md = episodes_dir / f"{ep_date.isoformat()}.md"
+        # Copy (don't move) so OUTPUT_DIR keeps its existing layout.
+        try:
+            import shutil
+            if mp3_path.resolve() != canonical_mp3.resolve():
+                shutil.copy2(mp3_path, canonical_mp3)
+            if shownotes_path.resolve() != canonical_md.resolve():
+                shutil.copy2(shownotes_path, canonical_md)
+        except Exception as copy_exc:  # noqa: BLE001
+            log.warning("pipeline.episode_copy_failed", error=str(copy_exc))
+        try:
+            from .web.db import register_episode
+            register_episode(
+                ep_date,
+                canonical_mp3,
+                canonical_md,
+                title=script.title,
+                items=brief.get("_items") or None,
+            )
+        except Exception as reg_exc:  # noqa: BLE001
+            log.warning("pipeline.register_episode_skipped", error=str(reg_exc))
+    except Exception as outer_exc:  # noqa: BLE001
+        log.warning("pipeline.publish_skipped", error=str(outer_exc))
+
     log.info(
         "pipeline.complete",
         dry_run=dry_run,

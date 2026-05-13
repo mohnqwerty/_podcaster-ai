@@ -19,14 +19,21 @@ def test_imports() -> None:
     import podcaster_ai.deliver
     import podcaster_ai.run
     from podcaster_ai.pipeline.sources import (
-        portswigger_rss,
-        hackerone_hacktivity,
-        projectdiscovery_releases,
-        nvd_recent,
+        ai_security_news,
         cisa_kev,
+        conferences,
+        hackerone_hacktivity,
+        hardware_hacking,
+        mastodon,
+        nvd_recent,
+        portswigger_rss,
+        projectdiscovery_releases,
         vendor_rss,
         youtube_transcripts,
     )
+
+    # Mastodon must be importable and callable; with no token it returns [].
+    assert mastodon.fetch() == []
 
     assert podcaster_ai.__version__ == "0.1.0"
 
@@ -36,7 +43,9 @@ def test_config_loading() -> None:
     from podcaster_ai.config import get_settings
 
     settings = get_settings()
-    assert settings.llm_provider in ("deepseek", "openrouter", "kimi", "qwen", "gemini")
+    assert settings.llm_provider in (
+        "deepseek", "openrouter", "kimi", "qwen", "gemini", "groq",
+    )
     assert settings.tts_provider in ("edge", "elevenlabs")
     assert settings.podcast_title == "Daily Recon"
 
@@ -51,13 +60,24 @@ def test_llm_endpoint_routing() -> None:
         ("kimi", "https://api.moonshot.cn/v1"),
         ("qwen", "https://dashscope.aliyuncs.com/compatible-mode/v1"),
         ("gemini", "https://generativelanguage.googleapis.com/v1beta/openai/"),
+        ("groq", "https://api.groq.com/openai/v1"),
     ]:
         s = Settings(llm_provider=provider)  # type: ignore
         assert s.llm_endpoint() == expected_endpoint
+
+
+def test_groq_provider_routing() -> None:
+    """Verify Groq provider picks up GROQ_API_KEY and the correct endpoint."""
+    from podcaster_ai.config import Settings
+
+    s = Settings(llm_provider="groq", groq_api_key="gsk_test_key")  # type: ignore
+    assert s.llm_endpoint() == "https://api.groq.com/openai/v1"
+    assert s.llm_api_key() == "gsk_test_key"
 
 
 if __name__ == "__main__":
     test_imports()
     test_config_loading()
     test_llm_endpoint_routing()
+    test_groq_provider_routing()
     print("✓ All smoke tests passed.")

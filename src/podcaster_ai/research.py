@@ -15,8 +15,12 @@ from .pipeline.sources import (
     Item,
 )
 from .pipeline.sources import (
+    ai_security_news,
     cisa_kev,
+    conferences,
     hackerone_hacktivity,
+    hardware_hacking,
+    mastodon,
     nvd_recent,
     portswigger_rss,
     projectdiscovery_releases,
@@ -38,9 +42,16 @@ Hard rules:
 - Every claim in your brief must be traceable to one of the supplied source URLs.
 - Prefer concrete, actionable detail (CVE IDs with CVSS, affected versions,
   vendor advisories, KEV due dates) over generic commentary.
-- Group items into 3–5 thematic segments. Skip items that are duplicates or
-  too thin to discuss.
+- Group items into 3–5 thematic segments.
+- MANDATORY SECTIONS (if data exists):
+  1. AI Security (focus on LLM vulnerabilities, ATLAS, and model bypasses)
+  2. Hardware Hacking (focus on firmware, side-channels, and physical bypasses)
+  3. Conferences & Events (Black Hat, DEF CON, Hack.lu, etc.)
+- Skip items that are duplicates or too thin to discuss.
 - Keep the tone analytical, not breathless.
+- Mastodon items are Tier 3 leads — must be cross-checked against authoritative
+  sources (NVD, vendor advisories, PortSwigger, CISA KEV, etc.) before being
+  asserted as fact. Always cite the original Mastodon URL in show notes.
 
 Output STRICT JSON matching this shape:
 {
@@ -74,6 +85,10 @@ def _gather_all() -> list[Item]:
         ("cisa_kev", cisa_kev.fetch),
         ("vendor_rss", vendor_rss.fetch),
         ("youtube", youtube_transcripts.fetch),
+        ("ai_security", ai_security_news.fetch),
+        ("hardware_hacking", hardware_hacking.fetch),
+        ("conferences", conferences.fetch),
+        ("mastodon", mastodon.fetch),
     ]
     out: list[Item] = []
     for name, fn in fetchers:

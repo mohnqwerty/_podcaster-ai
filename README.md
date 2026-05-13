@@ -2,7 +2,7 @@
 
 A plug-and-play daily podcast generator that fetches the latest bug-bounty, vulnerability research, and security releases, synthesizes them with an LLM into a tight two-host script, renders audio via TTS, and delivers episodes to Telegram — all from a single Docker container on your VPS.
 
-**What you get**: A ~10-minute daily podcast with hosts Maya (analyst) and Arjun (practitioner) discussing the day's top findings from PortSwigger, HackerOne, ProjectDiscovery, NVD, CISA KEV, and optional vendor feeds. Scheduled via systemd timer or cron. No external SaaS dependencies beyond your LLM and TTS providers.
+**What you get**: A ~10-minute daily podcast with hosts Maya (analyst) and Arjun (practitioner) discussing the day's top findings. The pipeline covers general bug bounty, **AI Security** (MITRE ATLAS, LLM vulnerabilities), **Hardware Hacking** (firmware, side-channels), and **Security Conferences** (Black Hat, DEF CON, Hack.lu). It prioritizes primary resources like Black Hat and DEF CON YouTube transcripts for deep-dive analysis. Scheduled via systemd timer or cron. No external SaaS dependencies beyond your LLM and TTS providers.
 
 ---
 
@@ -11,7 +11,7 @@ A plug-and-play daily podcast generator that fetches the latest bug-bounty, vuln
 ### Prerequisites
 
 - A VPS or local machine with Docker and Docker Compose installed
-- An LLM API key (DeepSeek, OpenRouter, Moonshot Kimi, Qwen, or Google Gemini)
+- An LLM API key (DeepSeek, OpenRouter, Moonshot Kimi, Qwen, Google Gemini, or Groq)
 - A TTS provider (edge-tts is free; ElevenLabs is optional)
 - A Telegram bot token and chat ID
 
@@ -65,6 +65,7 @@ A plug-and-play daily podcast generator that fetches the latest bug-bounty, vuln
 | `MOONSHOT_API_KEY` | Moonshot Kimi API key (if using Kimi) | (your key) |
 | `DASHSCOPE_API_KEY` | Qwen API key (if using Qwen) | (your key) |
 | `GEMINI_API_KEY` | Google Gemini API key (if using Gemini) | (your key) |
+| `GROQ_API_KEY` | Groq API key (if using Groq) | (your key) |
 | `TTS_PROVIDER` | Which TTS backend to use | `edge` |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token (from BotFather) | (your token) |
 | `TELEGRAM_CHAT_ID` | Telegram chat ID to receive episodes | (your chat ID) |
@@ -109,6 +110,7 @@ All providers expose an OpenAI-compatible REST interface. Switch providers by ch
 | **Moonshot Kimi** | `https://api.moonshot.cn/v1` | `moonshot-v1-32k` | `MOONSHOT_API_KEY` | Chinese LLM; excellent context window |
 | **Qwen** | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` | `DASHSCOPE_API_KEY` | Alibaba; good for Chinese content |
 | **Google Gemini** | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-2.5-flash` | `GEMINI_API_KEY` | Multimodal, fast, free tier available |
+| **Groq** | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` | `GROQ_API_KEY` | Extremely fast LPU inference; OpenAI-compatible; great latency for daily runs |
 
 **Example configurations:**
 
@@ -127,6 +129,11 @@ OPENROUTER_API_KEY=sk-or-...
 LLM_PROVIDER=gemini
 LLM_MODEL=gemini-2.5-flash
 GEMINI_API_KEY=AIza...
+
+# Groq (fast LPU inference)
+LLM_PROVIDER=groq
+LLM_MODEL=llama-3.3-70b-versatile
+GROQ_API_KEY=gsk_...
 ```
 
 ---
@@ -261,7 +268,54 @@ Or with dry-run:
 - **ProjectDiscovery Releases** — Nuclei and nuclei-templates updates
 - **NVD Recent CVEs** — High-severity CVEs (CVSS ≥ 7.0 by default)
 - **CISA KEV** — Known Exploited Vulnerabilities catalog
-- **YouTube Transcripts** (optional) — Recent episodes from security channels
+- **YouTube Transcripts** (primary) — Recent episodes from Black Hat, DEF CON, and other security channels
+- **AI Security News** — MITRE ATLAS and specialized AI security feeds
+- **Hardware Hacking** — Firmware, side-channel, and physical security news
+- **Conference News** — Upcoming events and news from Black Hat, DEF CON, and Hack.lu (Luxembourg)
+- **Mastodon** (optional, Tier 3 leads) — Recent statuses from your home timeline, bookmarks, and configured hashtags on a Mastodon-compatible instance (default: infosec.exchange). Enabled by setting `MASTODON_ACCESS_TOKEN`.
+
+### Mastodon (Optional, Tier 3 Leads)
+
+Mastodon timelines are an excellent leading indicator for in-the-wild exploits,
+zero-days, and hot CVEs surfaced by the security community before they hit the
+formal advisory channels. Because anyone can post anything, this source is
+classified as **Tier 3**: items must always be cross-checked against
+authoritative sources (NVD, vendor advisories, PortSwigger, CISA KEV, etc.)
+before being asserted as fact. The original Mastodon URL is always cited in
+the show notes.
+
+**1. Generate an access token.** On your Mastodon instance (e.g.
+`https://infosec.exchange`):
+
+1. Log in, then go to **Preferences → Development → New application**.
+2. Give the app any name (e.g. `podcaster-ai`).
+3. Tick the following scopes (and only these):
+   - `read:statuses`
+   - `read:lists`
+   - `read:accounts`
+   - `read:bookmarks`
+   - `read:favourites`
+4. Submit, open the app, then copy the **Your access token** value into
+   `MASTODON_ACCESS_TOKEN` in `.env`.
+
+**2. Configure the source.** In `.env`:
+
+```bash
+MASTODON_BASE_URL=https://infosec.exchange
+MASTODON_ACCESS_TOKEN=<your token>
+MASTODON_HASHTAGS=infosec,cve,bugbounty,0day,threatintel
+MASTODON_INCLUDE_HOME=true
+MASTODON_INCLUDE_BOOKMARKS=true
+MASTODON_HOURS=48
+```
+
+If `MASTODON_ACCESS_TOKEN` is empty the source is silently disabled — the
+pipeline still runs cleanly. Each enabled endpoint (home, per-tag, bookmarks)
+is fetched fail-soft; a single failing endpoint never breaks the run.
+
+The summary line of every Mastodon item carries an engagement signal
+(`[reblogs=R favs=F replies=P]`) so the ranking stage can use it as a
+secondary score.
 
 ### Vendor Advisory RSS Feeds (Optional)
 
@@ -273,18 +327,182 @@ VENDOR_RSS_FEEDS=https://www.microsoft.com/security/rss/,https://security.apple.
 
 Comma-separated list of RSS feed URLs. Each feed is fetched and items are ranked by recency and source weight.
 
-### YouTube Channels (Optional)
+### YouTube Channels (Primary Resources)
 
-Pull recent episode transcripts from security YouTube channels:
+Pull recent episode transcripts from primary security channels like Black Hat and DEF CON:
 
 ```bash
-YOUTUBE_CHANNEL_IDS=UCkRfArvrzheW2E7b6SVV7vA,UCO7lz_kxFgMIWF7BtMKsqkA
+# Defaults include Black Hat (UCS90qS2YOo6HQC3uH9_95MA) and DEF CON (UC6Om9kAkl32dWlDS_lX9W3Q)
+YOUTUBE_CHANNEL_IDS=UCS90qS2YOo6HQC3uH9_95MA,UC6Om9kAkl32dWlDS_lX9W3Q
 YOUTUBE_LOOKBACK_DAYS=14
 ```
 
 The pipeline fetches the last 14 days of videos from each channel, pulls their transcripts (if available), and includes them in the research brief. Transcripts are summarized by the LLM, never embedded raw.
 
 ---
+
+## Web Dashboard (PART B)
+
+A minimal **FastAPI** dashboard ships under `podcaster_ai.web` for browsing
+generated episodes, downloading their audio and show notes, viewing the
+current source configuration, managing dashboard users, and triggering an
+ad-hoc episode generation job. The dashboard is **optional** — the lean
+one-shot pipeline still runs identically without it.
+
+### Architecture
+
+| Concern | Choice | Why |
+| --- | --- | --- |
+| Web framework | FastAPI + Starlette | Async, type-driven, plays well with the rest of the codebase |
+| Templates | Jinja2 + Tailwind (CDN) | Server-rendered HTML, no SPA build step |
+| Live updates | HTMX polling | Job log auto-refreshes every 3 s without JS frameworks |
+| DB | SQLAlchemy 2.0 async + SQLite (`aiosqlite`) | Single file under `DATA_DIR`, zero ops |
+| Sessions | Signed cookies (`itsdangerous`), 12 h TTL | No server-side session store needed |
+| CSRF | Double-submit cookie + hidden form field | Standard, framework-agnostic |
+| Passwords | Argon2id via `argon2-cffi` | Modern KDF, opportunistic rehash on login |
+| Login throttling | `slowapi` — 5/min per IP by default | Slows credential-stuffing without locking out |
+| Background jobs | `BackgroundTasks` + `python -m podcaster_ai.run` subprocess | Keeps the web process responsive; pipeline crash never kills the dashboard |
+
+### Routes
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/healthz` | open | Liveness probe (`ok`) |
+| `GET` | `/` | open | Redirects to `/episodes` or `/login` |
+| `GET` | `/login` | open | Login form |
+| `POST` | `/login` | open (rate-limited) | Submit credentials |
+| `POST` | `/logout` | user | Clear session |
+| `GET` | `/episodes` | user | Paginated list of episodes (20/page) |
+| `GET` | `/episodes/{YYYY-MM-DD}` | user | Episode detail with rendered show notes |
+| `GET` | `/episodes/{YYYY-MM-DD}/audio` | user | Streams MP3 with HTTP Range support |
+| `GET` | `/episodes/{YYYY-MM-DD}/notes` | user | Downloads the markdown show notes |
+| `GET` | `/sources` | admin | Read-only env view + writable `sources_config.json` |
+| `POST` | `/sources` | admin | Persist `sources_config.json` (JSON-validated) |
+| `GET` | `/admin/users` | admin | List users |
+| `POST` | `/admin/users` | admin | Create user (12+ char password required) |
+| `POST` | `/admin/users/{id}/disable` | admin | Toggle disabled flag |
+| `GET` | `/generate` | admin | Confirmation page |
+| `POST` | `/generate` | admin | Spawn a `generate` job |
+| `GET` | `/jobs/{id}` | user | Job detail + auto-polling log tail |
+| `GET` | `/jobs/{id}/log` | user | Raw last-64-KB log tail (HTMX endpoint) |
+
+### Database schema
+
+Four tables, all created automatically on first start.
+
+- `users(id, username UNIQUE, password_hash, role CHECK IN ('admin','viewer'),
+  disabled, created_at)`
+- `episodes(id, episode_date DATE UNIQUE, title, mp3_path, notes_md_path,
+  duration_seconds, items_json, created_at)`
+- `jobs(id, kind, status CHECK IN ('pending','running','succeeded','failed'),
+  started_at, finished_at, log_path, created_at)`
+- `audit_log(id, user_id FK, action, ip, ts INDEXED, details_json)`
+
+The pipeline writes episode rows via `podcaster_ai.web.db.register_episode()`,
+which uses a short-lived synchronous `sqlite3` connection and is fail-soft:
+any DB error degrades to a `WARNING` log so the standalone pipeline keeps
+working when the dashboard isn't installed.
+
+### Bootstrap and first login
+
+1. Set a strong `SESSION_SECRET` (48+ random bytes) in `.env`:
+
+   ```bash
+   python -c "import secrets; print(secrets.token_urlsafe(48))"
+   ```
+
+2. Set `BOOTSTRAP_ADMIN_USER` and `BOOTSTRAP_ADMIN_PASSWORD` in `.env` once.
+   On first start the dashboard creates that user with role `admin`. The
+   bootstrap is **idempotent**: subsequent starts notice the user already
+   exists and skip the seeding step.
+3. Log in, create your real users from `/admin/users`, then *unset* the two
+   bootstrap variables and restart so the password no longer sits on disk.
+
+### Running the dashboard
+
+**Docker (recommended for production):**
+
+```bash
+docker compose up -d web
+# Health probe:
+curl http://127.0.0.1:8000/healthz
+```
+
+The `web` service binds **only to `127.0.0.1:8000`** on the host. Terminate
+TLS at a reverse proxy on the host (Caddy, nginx, traefik) and forward to
+that port.
+
+Also enable the systemd unit if you want it to start at boot:
+
+```bash
+sudo cp systemd/podcaster-ai-web.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now podcaster-ai-web.service
+```
+
+The original `podcaster-ai.timer` is **untouched** — it continues to drive
+the daily one-shot pipeline.
+
+**Local development:**
+
+```bash
+bash scripts/serve.sh
+# or
+python -m uvicorn podcaster_ai.web.main:app --host 127.0.0.1 --port 8000
+```
+
+For plain HTTP local dev, set `SESSION_COOKIE_SECURE=false` in `.env`. Keep
+it `true` everywhere else.
+
+### OPSEC measures wired in
+
+- **Argon2id password hashing** with the library's strong defaults; passwords
+  are never logged and the login response is identical for unknown user vs
+  wrong password.
+- **Signed, timestamped session cookies** (`HttpOnly`, `SameSite=Lax`,
+  `Secure` in production). Sessions expire after 12 h regardless of activity.
+- **CSRF on every state-changing route** via the double-submit cookie pattern.
+- **Rate limiting** on `POST /login` (5/min per IP by default; tunable with
+  `DASHBOARD_LOGIN_RATE_LIMIT`).
+- **Security headers** on every response: `X-Content-Type-Options: nosniff`,
+  `X-Frame-Options: DENY`, `Referrer-Policy: same-origin`, and HSTS when the
+  reverse proxy reports HTTPS via `X-Forwarded-Proto: https`.
+- **Path safety** for episode routes: `{date_str}` is matched against
+  `^\d{4}-\d{2}-\d{2}$` and parsed via `date.fromisoformat`, so traversal
+  payloads like `../etc/passwd` 404 instead of touching the filesystem.
+- **Subprocess environment scrubbing**: when the dashboard launches the
+  pipeline subprocess, any environment variable whose name matches
+  `KEY|TOKEN|SECRET|PASSWORD|...` is stripped before `execve`, so the
+  captured stdout/stderr never contains credentials even if the pipeline
+  accidentally prints `os.environ`.
+- **Container hardening** (`docker-compose.yml`, `web` service):
+  `read_only: true`, writable `tmpfs` on `/tmp`, `cap_drop: [ALL]`,
+  `security_opt: [no-new-privileges:true]`. The container is bound only to
+  `127.0.0.1` on the host.
+- **Audit log**: every login attempt (success and failure), user create/
+  disable, sources save, and job creation is recorded in `audit_log` with
+  client IP and a redacted `details_json`. Log redaction strips obvious
+  secret fields (`password`, `token`, `api_key`, ...) before serialization.
+- **Admin-only surfaces**: `/sources`, `/admin/users`, and `POST /generate`
+  require `role=admin`. Users with `role=viewer` get a friendly 403.
+- **Self-protection**: an admin cannot disable their own account.
+
+### What lives where on disk
+
+```
+${DATA_DIR}/                  # default: /app/data inside container, ./data on host
+  podcaster.db                # sqlite (users, episodes, jobs, audit_log)
+  episodes/
+    YYYY-MM-DD.mp3            # canonical audio path used by /episodes/{date}/audio
+    YYYY-MM-DD.md             # canonical show notes used by /episodes/{date}
+  joblogs/
+    job-{id}.log              # captured stdout/stderr of background jobs
+  sources_config.json         # optional, written from /sources
+```
+
+`OUTPUT_DIR` keeps its existing layout — the pipeline copies (does not move)
+the two artifacts into `episodes/` so older tooling that reads from `out/`
+still works.
 
 ## Cost Estimates
 
