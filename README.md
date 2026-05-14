@@ -665,3 +665,68 @@ The hosts, developers, and maintainers are not liable for any misuse, inaccuraci
 This is a personal project. For issues or suggestions, open a GitHub issue or contact the maintainer.
 
 Happy podcasting! 🎙️
+
+### Podcast & Security Feed Sources (Optional)
+
+Seven additional sources are available, each gated by an environment variable (default: disabled). When enabled, each fetcher returns at most **1 item per run** to keep the research brief focused.
+
+#### 1. Critical Thinking Bug Bounty Podcast
+
+Latest episode metadata with YouTube transcript when available.
+
+```bash
+CT_BB_ENABLED=true
+CT_BB_RSS_URL=https://www.criticalthinkingpodcast.io/feed
+```
+
+#### 2. Bug Bounty Reports Explained (BBRE)
+
+Grzegorz Niedziela's YouTube channel transcripts. Focuses on detailed bug bounty report walkthroughs.
+
+```bash
+BBRE_ENABLED=true
+BBRE_CHANNEL_ID=UCdWIQh9DGG6uhqHrqQv1jBQ
+```
+
+#### 3. Darknet Diaries
+
+Jeremy Mikula's acclaimed podcast on cybercrime, hacking, and internet history.
+
+```bash
+DARKNET_DIARIES_ENABLED=true
+```
+
+#### 4. Risky Business
+
+Patrick Gray's weekly podcast on cybersecurity news and analysis.
+
+```bash
+RISKY_BIZ_ENABLED=true
+```
+
+#### 5. The DFIR Report
+
+High-quality incident analysis and threat intelligence reports.
+
+```bash
+DFIR_REPORT_ENABLED=true
+```
+
+#### 6. Ransomwatch
+
+Public ransomware leak tracker. Produces a single summary item per run aggregating recent victims (24–48 hours) and top ransomware groups.
+
+```bash
+RANSOMWATCH_ENABLED=true
+```
+
+#### 7. Krebs on Security
+
+Brian Krebs' investigative security journalism.
+
+```bash
+KREBS_ENABLED=true
+```
+
+**All new sources are fail-soft:** if a feed is unreachable or malformed, the fetcher logs a warning and returns an empty list; the pipeline continues cleanly.
+
