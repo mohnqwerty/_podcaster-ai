@@ -12,8 +12,9 @@ services:
     env_file:
       - .env
     volumes:
-      - ./out:/app/out
       - ./data:/app/data
+      - ./out:/app/out
+    user: "1000:1000"
     restart: "no"
     tty: false
     stdin_open: false
@@ -32,8 +33,9 @@ services:
     env_file:
       - .env
     volumes:
-      - ./out:/app/out
       - ./data:/app/data
+      - ./out:/app/out
+    user: "1000:1000"
     # Inside the container the app must bind 0.0.0.0; the host port mapping
     # below restricts external exposure to localhost.
     command:

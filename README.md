@@ -535,7 +535,64 @@ Rough order-of-magnitude per daily run (assuming one 10-minute episode):
 
 ## Troubleshooting
 
-### "ffmpeg not found"
+### Common Issues
+
+#### 1. Pipeline exits 0 with no output
+
+**Symptom**: Running `docker compose run --rm podcaster` or `python -m podcaster_ai.run` completes immediately with exit code 0 but produces no artifacts in `./out/`.
+
+**Cause**: The `run.py` module lacks an `if __name__ == "__main__":` guard, so the CLI entrypoint is never invoked.
+
+**Fix**: Ensure you have the latest code:
+```bash
+git pull origin feat/cleanup-pr-1
+```
+
+The fix adds the missing guard to `src/podcaster_ai/run.py`.
+
+#### 2. `/app/out` PermissionError or "Permission denied"
+
+**Symptom**: The pipeline fails with:
+```
+PermissionError: [Errno 13] Permission denied: '/app/out'
+```
+
+Or the `web` service cannot write to `./data` or `./out` on the host.
+
+**Cause**: The host directories `./data` and `./out` are owned by root or another user, but the container runs as uid 1000 (the `app` user).
+
+**Fix**: Run the setup script once after cloning:
+```bash
+./scripts/setup-dirs.sh
+```
+
+This fixes ownership and permissions on the host directories. You only need to run it once.
+
+#### 3. DeepSeek returns 402 Insufficient Balance
+
+**Symptom**: The pipeline fails with:
+```
+HTTP 402: Insufficient Balance
+```
+
+**Cause**: Your DeepSeek account has no remaining balance or quota.
+
+**Fix**: Switch to a free or better-provisioned LLM provider. We recommend **Groq** (free tier, ~500 req/min):
+
+1. Get a free Groq API key at https://console.groq.com/
+2. Update `.env`:
+   ```bash
+   LLM_PROVIDER=groq
+   LLM_MODEL=llama-3.3-70b-versatile
+   GROQ_API_KEY=gsk_...
+   ```
+3. Retry the pipeline.
+
+Alternatively, use **Google Gemini** (free tier) or **OpenRouter** (pay-as-you-go, aggregates many models).
+
+### Other Issues
+
+#### "ffmpeg not found"
 The Dockerfile installs ffmpeg via `apt-get`. If you're running locally, install it:
 ```bash
 # Ubuntu/Debian
@@ -572,6 +629,35 @@ Update `MAYA_VOICE` and `ARJUN_VOICE` to valid voice names.
   ```bash
   LOG_LEVEL=DEBUG docker compose run --rm podcaster --dry-run
   ```
+
+---
+
+## Sources
+
+The pipeline aggregates items from the following feeds and APIs. All sources are fail-soft: if a single feed fails, the pipeline continues with other sources.
+
+### Built-in Sources (Always Active)
+
+| Source | Feed/API | Status | Notes |
+|--------|----------|--------|-------|
+| **PortSwigger** | https://portswigger.net/research/rss | ✅ Working | Security research and blog |
+| **HackerOne Hacktivity** | https://hackerone.com/hacktivity.json | ✅ Working | Public disclosed bug bounty reports |
+| **ProjectDiscovery** | https://api.github.com/repos/projectdiscovery/nuclei/releases | ✅ Working | Nuclei and nuclei-templates releases |
+| **NVD Recent CVEs** | https://services.nvd.nist.gov/rest/json/cves/2.0 | ✅ Working | High-severity CVEs (CVSS >= 7.0 by default) |
+| **CISA KEV** | https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json | ✅ Working | Known Exploited Vulnerabilities catalog |
+| **YouTube Transcripts** | https://www.youtube.com/feeds/videos.xml?channel_id=... | ⚠️ Requires valid channel IDs | Recent episodes from security channels (see `.env.example` for setup) |
+| **AI Security News** | https://blog.trailofbits.com/feed/ | ✅ Working | Trail of Bits security research |
+| | https://embracethered.com/blog/index.xml | ✅ Working | Embrace The Red security blog |
+| | https://protectai.com/blog/rss.xml | ✅ Working | Protect AI security advisories |
+| **Hardware Hacking** | https://hackaday.com/category/security-hacks/feed/ | ✅ Working | Firmware, side-channel, and physical security news |
+| **Conference News** | https://infosec-conferences.com/feed/ | ✅ Working | Upcoming security events and news |
+| | https://media.ccc.de/podcast-hd.xml | ✅ Working | Chaos Computer Club (CCC) conferences |
+| **Mastodon** | https://infosec.exchange (configurable) | ⚠️ Optional | Tier 3 leads; requires `MASTODON_ACCESS_TOKEN` |
+
+### Optional Sources
+
+- **Vendor Advisory RSS Feeds**: Add custom feeds via `VENDOR_RSS_FEEDS` in `.env` (comma-separated URLs)
+- **YouTube Channels**: Add channel IDs via `YOUTUBE_CHANNEL_IDS` in `.env` (comma-separated; see troubleshooting for how to find valid IDs)
 
 ### "Podcast is too short or too long"
 The script stage targets 1500–1700 words (~10 minutes). If episodes are consistently off:
