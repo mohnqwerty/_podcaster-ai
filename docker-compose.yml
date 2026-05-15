@@ -8,9 +8,58 @@ services:
     env_file:
       - .env
     volumes:
+      - ./data:/app/data
       - ./out:/app/out
-    # One-shot job: timer/cron on the host drives invocation.
+    user: "1000:1000"
     restart: "no"
     # Keep stdout/stderr line-buffered for journald / docker logs.
     tty: false
     stdin_open: false
+
+  # ---------------------------------------------------------------------------
+  # Long-running web dashboard (PART B). Bind 127.0.0.1 only — terminate TLS
+  # at a host-level reverse proxy (caddy / nginx / traefik). The dashboard
+  # itself does not speak TLS.
+  # ---------------------------------------------------------------------------
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: podcaster-ai:latest
+    container_name: podcaster-ai-web
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./out:/app/out
+    user: "1000:1000"
+    # Inside the container the app must bind 0.0.0.0; the host port mapping
+    # below restricts external exposure to localhost.
+    command:
+      - python
+      - -m
+      - uvicorn
+      - podcaster_ai.web.main:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --proxy-headers
+      - --forwarded-allow-ips=*
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;u=urllib.request.urlopen('http://127.0.0.1:8000/healthz',timeout=3);sys.exit(0 if u.read()==b'ok' else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # Linux capability hardening.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
