@@ -35,10 +35,7 @@ RUN mkdir -p /app/out /app/data && chown -R 1000:1000 /app
 
 USER app
 
-ENV OUTPUT_DIR=/app/out \
-    DATA_DIR=/app/data
+ENV OUTPUT_DIR=/app/out
 
-# Default command runs the one-shot pipeline. The `web` service in
-# docker-compose overrides this with `command:` to run uvicorn instead.
 ENTRYPOINT ["python", "-m", "podcaster_ai.run"]
 CMD []

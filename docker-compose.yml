@@ -1,8 +1,4 @@
 services:
-  # ---------------------------------------------------------------------------
-  # One-shot pipeline (unchanged behavior). The host's systemd timer or cron
-  # invokes this via `docker compose run --rm podcaster`.
-  # ---------------------------------------------------------------------------
   podcaster:
     build:
       context: .
@@ -16,6 +12,7 @@ services:
       - ./out:/app/out
     user: "1000:1000"
     restart: "no"
+    # Keep stdout/stderr line-buffered for journald / docker logs.
     tty: false
     stdin_open: false
 

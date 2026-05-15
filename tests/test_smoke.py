@@ -20,20 +20,36 @@ def test_imports() -> None:
     import podcaster_ai.run
     from podcaster_ai.pipeline.sources import (
         ai_security_news,
+        bug_bounty_reports_explained,
         cisa_kev,
         conferences,
+        critical_thinking_podcast,
+        darknet_diaries,
+        dfir_report,
         hackerone_hacktivity,
         hardware_hacking,
+        krebs_on_security,
         mastodon,
         nvd_recent,
         portswigger_rss,
         projectdiscovery_releases,
+        ransomwatch,
+        risky_business,
         vendor_rss,
         youtube_transcripts,
     )
 
     # Mastodon must be importable and callable; with no token it returns [].
     assert mastodon.fetch() == []
+
+    # New sources must be importable and callable; when disabled, return [].
+    assert critical_thinking_podcast.fetch() == []
+    assert bug_bounty_reports_explained.fetch() == []
+    assert darknet_diaries.fetch() == []
+    assert risky_business.fetch() == []
+    assert dfir_report.fetch() == []
+    assert ransomwatch.fetch() == []
+    assert krebs_on_security.fetch() == []
 
     assert podcaster_ai.__version__ == "0.1.0"
 
