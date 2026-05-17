@@ -133,7 +133,3 @@ def cli() -> int:
     except Exception as exc:  # noqa: BLE001
         log.error("pipeline.unexpected_error", error=str(exc), exc_info=True)
         return 1
-
-
-if __name__ == "__main__":
-    sys.exit(cli())

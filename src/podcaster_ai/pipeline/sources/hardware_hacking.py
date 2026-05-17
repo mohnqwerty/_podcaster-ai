@@ -14,6 +14,8 @@ log = structlog.get_logger(__name__)
 # Primary hardware hacking/security sources.
 FEEDS: Final[list[str]] = [
     "https://hackaday.com/category/security-hacks/feed/", # Hackaday Security
+    "https://www.hardwaresecurity.org/feed/",            # Hardware Security
+    "https://limited.systems/index.xml",                 # Limited Systems
 ]
 SOURCE: Final[str] = "hardware_hacking"
 

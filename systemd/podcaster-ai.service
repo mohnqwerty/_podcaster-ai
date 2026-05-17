@@ -9,7 +9,7 @@ Requires=docker.service
 Type=oneshot
 # Adjust WorkingDirectory to where you cloned the repo on the VPS.
 WorkingDirectory=/opt/_podcaster-ai
-ExecStart=/usr/bin/docker compose run --rm podcaster
+ExecStart=/bin/bash /opt/_podcaster-ai/scripts/run-once.sh
 # Reasonable limits — the job is bursty (LLM + TTS) and otherwise idle.
 TimeoutStartSec=30min
 Nice=10

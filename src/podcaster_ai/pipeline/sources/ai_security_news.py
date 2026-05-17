@@ -13,9 +13,9 @@ log = structlog.get_logger(__name__)
 
 # Primary AI security sources.
 FEEDS: Final[list[str]] = [
-    "https://blog.trailofbits.com/feed/",  # Trail of Bits security research
-    "https://embracethered.com/blog/index.xml",     # Embrace The Red security blog
-    "https://protectai.com/blog/rss.xml", # Protect AI security advisories
+    "https://atlas.mitre.org/feed.xml",  # MITRE ATLAS
+    "https://hiddenlayer.com/feed/",     # HiddenLayer (AI Security)
+    "https://advisories.aisecurity.org/feed", # AI Security Advisories (if available)
 ]
 SOURCE: Final[str] = "ai_security"
 

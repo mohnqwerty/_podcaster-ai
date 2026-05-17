@@ -22,9 +22,7 @@ def fetch() -> list[Item]:
     """Return KEV entries added in the last DEFAULT_LOOKBACK_DAYS days. Fail-soft."""
     try:
         with http_client() as client:
-            # CISA returns 403 without a proper User-Agent header
-            headers = {"User-Agent": "Mozilla/5.0 (compatible; PodcasterAI/1.0; +https://github.com/mohnqwerty/_podcaster-ai)"}
-            resp = client.get(KEV_URL, headers=headers)
+            resp = client.get(KEV_URL)
             resp.raise_for_status()
             data: dict[str, Any] = resp.json() or {}
     except Exception as exc:  # noqa: BLE001
