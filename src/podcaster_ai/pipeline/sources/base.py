@@ -24,13 +24,6 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "ai_security": 1.0,
     "hardware_hacking": 1.0,
     "mastodon": 0.5,       # Tier 3 lead — cross-check before asserting as fact
-    "critical_thinking": 0.8,  # Podcast source
-    "bbre": 0.8,           # YouTube bug bounty channel
-    "darknet_diaries": 0.9,    # Established podcast
-    "risky_business": 0.9,     # Established podcast
-    "dfir_report": 1.0,    # High-quality incident analysis
-    "ransomwatch": 0.7,    # Ransomware tracking feed
-    "krebs": 1.0,          # Established security journalist
 }
 
 DEFAULT_TIMEOUT = httpx.Timeout(20.0, connect=10.0)

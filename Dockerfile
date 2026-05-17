@@ -30,8 +30,8 @@ COPY README.md /app/README.md
 # Install the package itself (no deps re-resolution).
 RUN pip install --no-cache-dir --no-deps -e /app
 
-# Output + persistent data dirs, owned by non-root user (uid 1000).
-RUN mkdir -p /app/out /app/data && chown -R 1000:1000 /app
+# Output dir, owned by non-root user.
+RUN mkdir -p /app/out && chown -R app:app /app
 
 USER app
 

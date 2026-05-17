@@ -16,21 +16,14 @@ from .pipeline.sources import (
 )
 from .pipeline.sources import (
     ai_security_news,
-    bug_bounty_reports_explained,
     cisa_kev,
     conferences,
-    critical_thinking_podcast,
-    darknet_diaries,
-    dfir_report,
     hackerone_hacktivity,
     hardware_hacking,
-    krebs_on_security,
     mastodon,
     nvd_recent,
     portswigger_rss,
     projectdiscovery_releases,
-    ransomwatch,
-    risky_business,
     vendor_rss,
     youtube_transcripts,
 )
@@ -54,6 +47,7 @@ Hard rules:
   1. AI Security (focus on LLM vulnerabilities, ATLAS, and model bypasses)
   2. Hardware Hacking (focus on firmware, side-channels, and physical bypasses)
   3. Conferences & Events (Black Hat, DEF CON, Hack.lu, etc.)
+  4. Podcasts & Research (Darknet Diaries, Critical Thinking Bug Bounty, etc.)
 - Skip items that are duplicates or too thin to discuss.
 - Keep the tone analytical, not breathless.
 - Mastodon items are Tier 3 leads — must be cross-checked against authoritative
@@ -96,13 +90,6 @@ def _gather_all() -> list[Item]:
         ("hardware_hacking", hardware_hacking.fetch),
         ("conferences", conferences.fetch),
         ("mastodon", mastodon.fetch),
-        ("critical_thinking", critical_thinking_podcast.fetch),
-        ("bbre", bug_bounty_reports_explained.fetch),
-        ("darknet_diaries", darknet_diaries.fetch),
-        ("risky_business", risky_business.fetch),
-        ("dfir_report", dfir_report.fetch),
-        ("ransomwatch", ransomwatch.fetch),
-        ("krebs", krebs_on_security.fetch),
     ]
     out: list[Item] = []
     for name, fn in fetchers:

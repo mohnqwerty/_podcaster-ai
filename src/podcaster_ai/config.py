@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     telegram_chat_id: Optional[str] = None
 
     # ---------- Sources ----------
-    vendor_rss_feeds: str = ""
+    vendor_rss_feeds: str = "https://feeds.megaphone.fm/darknetdiaries,https://anchor.fm/s/e3d9370c/podcast/rss"
     youtube_channel_ids: str = "UCS90qS2YOo6HQC3uH9_95MA,UC6Om9kAkl32dWlDS_lX9W3Q"
     youtube_lookback_days: int = 14
     nvd_min_cvss: float = 7.0
