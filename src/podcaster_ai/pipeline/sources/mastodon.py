@@ -149,6 +149,13 @@ def _get_json(
     headers = {"Authorization": f"Bearer {token}"}
     try:
         resp = client.get(full, headers=headers)
+        
+        # Fallback: if /timelines/home returns 401, fall back to public timeline
+        if resp.status_code == 401 and "timelines/home" in path:
+            log.warning("mastodon.home_401_fallback", endpoint=label)
+            fallback_path = "/api/v1/timelines/public?local=false&limit=40"
+            resp = client.get(base_url.rstrip("/") + fallback_path, headers=headers)
+            
         resp.raise_for_status()
         data = resp.json()
         if isinstance(data, list):
@@ -192,6 +199,7 @@ def fetch() -> list[Item]:
                 )
             for tag in hashtags:
                 # The Mastodon API expects the bare tag (no leading #) in the path.
+                # Mastodon now requires ?limit=40 plus likely a different param shape.
                 statuses.extend(
                     _get_json(
                         client,

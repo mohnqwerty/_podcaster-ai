@@ -22,7 +22,9 @@ def fetch() -> list[Item]:
     """Return KEV entries added in the last DEFAULT_LOOKBACK_DAYS days. Fail-soft."""
     try:
         with http_client() as client:
-            resp = client.get(KEV_URL)
+            # Add User-Agent to avoid 403 Forbidden
+            headers = {"User-Agent": "podcaster-ai/1.0 (+https://github.com/mohnqwerty/_podcaster-ai)"}
+            resp = client.get(KEV_URL, headers=headers)
             resp.raise_for_status()
             data: dict[str, Any] = resp.json() or {}
     except Exception as exc:  # noqa: BLE001

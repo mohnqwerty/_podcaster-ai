@@ -52,7 +52,8 @@ class Settings(BaseSettings):
     # ---------- TTS ----------
     tts_provider: TTSProvider = "edge"
     maya_voice: str = "en-US-AriaNeural"
-    arjun_voice: str = "en-US-GuyNeural"
+    arjun_voice: str = "en-IN-PrabhatNeural"
+    tts_rate: str = "+25%"
 
     elevenlabs_api_key: Optional[str] = None
     elevenlabs_maya_voice_id: Optional[str] = None

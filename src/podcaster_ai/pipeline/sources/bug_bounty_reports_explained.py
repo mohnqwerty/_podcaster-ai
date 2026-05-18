@@ -5,7 +5,7 @@ Capped to 1 latest episode per run.
 
 Configuration (env):
 - BBRE_ENABLED      (bool, default false)
-- BBRE_CHANNEL_ID   (str, default UCdWIQh9DGG6uhqHrqQv1jBQ)
+- BBRE_CHANNEL_ID   (str, default UCxa-30GMjF7nfkBvMboDM_g)
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from .base import Item, http_client, parse_dt
 log = structlog.get_logger(__name__)
 
 SOURCE: Final[str] = "bbre"
-DEFAULT_CHANNEL_ID: Final[str] = "UCdWIQh9DGG6uhqHrqQv1jBQ"
+DEFAULT_CHANNEL_ID: Final[str] = "UCxa-30GMjF7nfkBvMboDM_g"
 RSS_URL_FMT: Final[str] = "https://www.youtube.com/feeds/videos.xml?channel_id={cid}"
 
 

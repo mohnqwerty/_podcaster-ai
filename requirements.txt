@@ -24,3 +24,4 @@ python-telegram-bot>=20.7,<22
 
 # Utilities
 python-dateutil>=2.9,<3
+pydub>=0.25,<1

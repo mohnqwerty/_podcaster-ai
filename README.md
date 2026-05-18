@@ -79,7 +79,8 @@ A plug-and-play daily podcast generator that fetches the latest bug-bounty, vuln
 | `LLM_MAX_RETRIES` | `4` | Retry attempts for LLM failures |
 | `TTS_PROVIDER` | `edge` | `edge` (free) or `elevenlabs` (paid) |
 | `MAYA_VOICE` | `en-US-AriaNeural` | Voice for Maya (edge-tts voice name) |
-| `ARJUN_VOICE` | `en-US-GuyNeural` | Voice for Arjun (edge-tts voice name) |
+| `ARJUN_VOICE` | `en-IN-PrabhatNeural` | Voice for Arjun (edge-tts voice name) |
+| `TTS_RATE` | `+25%` | Speed of the TTS output (e.g. +25% or -10%) |
 | `ELEVENLABS_API_KEY` | — | ElevenLabs API key (if using ElevenLabs) |
 | `ELEVENLABS_MAYA_VOICE_ID` | — | ElevenLabs voice ID for Maya |
 | `ELEVENLABS_ARJUN_VOICE_ID` | — | ElevenLabs voice ID for Arjun |
@@ -147,12 +148,20 @@ No API key required. Uses Microsoft's edge-tts package to synthesize speech.
 ```bash
 TTS_PROVIDER=edge
 MAYA_VOICE=en-US-AriaNeural
-ARJUN_VOICE=en-US-GuyNeural
+ARJUN_VOICE=en-IN-PrabhatNeural
+TTS_RATE=+25%
 ```
 
 **Available voices** (edge-tts supports many; here are common ones):
 - Female: `en-US-AriaNeural`, `en-US-JennyNeural`, `en-GB-SoniaNeural`
-- Male: `en-US-GuyNeural`, `en-US-AmberNeural`, `en-GB-RyanNeural`
+- Male: `en-IN-PrabhatNeural`, `en-US-GuyNeural`, `en-US-AmberNeural`, `en-GB-RyanNeural`
+
+### Audio Quality & Continuity
+- **TTS Rate**: Configurable via `TTS_RATE` (default `+25%`).
+- **Voice Continuity**: Maya is pinned to `en-US-AriaNeural` and Arjun to `en-IN-PrabhatNeural` in code for consistency.
+- **Inter-turn Silence**: Tightened to 100ms between speaker changes.
+- **Crossfade**: 40ms linear crossfade applied between turns to eliminate pops.
+- **Normalization**: Loudness is normalized to -20 dBFS across all turns before final stitching.
 
 Run `edge-tts --list-voices` inside the container to see all available voices.
 
