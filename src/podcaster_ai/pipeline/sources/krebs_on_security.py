@@ -2,14 +2,10 @@
 
 Fetches latest articles from RSS feed.
 Capped to 1 latest article per run.
-
-Configuration (env):
-- KREBS_ENABLED   (bool, default false)
 """
 
 from __future__ import annotations
 
-import os
 from datetime import datetime, timedelta, timezone
 from typing import Final
 
@@ -24,19 +20,8 @@ SOURCE: Final[str] = "krebs"
 FEED_URL: Final[str] = "https://krebsonsecurity.com/feed/"
 
 
-def _env_bool(name: str, default: bool = False) -> bool:
-    """Parse boolean from environment variable."""
-    raw = os.environ.get(name)
-    if raw is None or raw.strip() == "":
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on", "y", "t"}
-
-
 def fetch() -> list[Item]:
     """Return latest Krebs on Security article."""
-    if not _env_bool("KREBS_ENABLED"):
-        log.info("krebs.disabled", reason="KREBS_ENABLED not set")
-        return []
 
     try:
         with http_client() as client:

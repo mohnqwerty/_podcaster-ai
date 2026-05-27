@@ -14,7 +14,7 @@ from .deliver import DeliveryError, send_sync
 from .llm import LLMCallError, LLMConfigError
 from .research import build_research_brief
 from .script import ScriptResult, write_script
-from .shownotes import generate_shownotes
+from .shownotes import generate_pdf, generate_shownotes
 from .tts import TTSError, render_async
 
 log = structlog.get_logger(__name__)
@@ -74,20 +74,26 @@ def main(dry_run: bool = False) -> int:
 
     log.info("pipeline.audio_rendered", path=str(mp3_path), size_bytes=mp3_path.stat().st_size)
 
-    # Stage 4: Show notes — generate markdown.
+    # Stage 4: Show notes — generate markdown + PDF.
     try:
-        shownotes = generate_shownotes(script, brief, episode_date)
+        shownotes_md = generate_shownotes(script, brief, episode_date)
     except Exception as exc:  # noqa: BLE001
         log.error("pipeline.shownotes_failed", error=str(exc))
         return 1
 
-    shownotes_path = output_dir / f"{date_str}_shownotes.md"
-    shownotes_path.write_text(shownotes, encoding="utf-8")
-    log.info("pipeline.shownotes_saved", path=str(shownotes_path))
+    md_path = output_dir / f"{date_str}_shownotes.md"
+    md_path.write_text(shownotes_md, encoding="utf-8")
+    log.info("pipeline.shownotes_saved", path=str(md_path))
+
+    pdf_path = output_dir / f"{date_str}_shownotes.pdf"
+    try:
+        generate_pdf(script, brief, pdf_path, episode_date)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("pipeline.pdf_failed", error=str(exc), path=str(pdf_path))
 
     # Stage 5: Deliver — send to Telegram (or dry-run).
     try:
-        send_sync(mp3_path, shownotes, script.title, dry_run=dry_run)
+        send_sync(mp3_path, shownotes_md, pdf_path, script.title, dry_run=dry_run)
     except DeliveryError as exc:
         log.error("pipeline.delivery_failed", error=str(exc))
         if not dry_run:
@@ -99,7 +105,8 @@ def main(dry_run: bool = False) -> int:
         dry_run=dry_run,
         title=script.title,
         mp3=str(mp3_path),
-        shownotes=str(shownotes_path),
+        shownotes=str(md_path),
+        pdf=str(pdf_path) if pdf_path.exists() else None,
     )
     return 0
 

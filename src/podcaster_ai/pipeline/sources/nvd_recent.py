@@ -73,8 +73,8 @@ def fetch() -> list[Item]:
             continue
 
         description = _english_description(cve.get("descriptions") or [])
-        if len(description) > 1000:
-            description = description[:1000].rsplit(" ", 1)[0] + "…"
+        if len(description) > 500:
+            description = description[:500].rsplit(" ", 1)[0] + "…"
 
         items.append(
             Item(

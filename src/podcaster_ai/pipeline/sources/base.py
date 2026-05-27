@@ -23,6 +23,11 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "conferences": 1.1,    # High importance for events
     "ai_security": 1.0,
     "hardware_hacking": 1.0,
+    "krebs": 1.0,
+    "threat_intel_news": 1.0,
+    "ransomwatch": 0.8,    # Ransomware victim tracking
+    "dfir_report": 0.9,    # In-depth DFIR incident analysis
+    "nitter": 0.6,         # Twitter/X via Nitter RSS — Tier 3 leads, cross-check
     "mastodon": 0.5,       # Tier 3 lead — cross-check before asserting as fact
 }
 

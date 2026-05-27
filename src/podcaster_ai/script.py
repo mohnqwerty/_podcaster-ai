@@ -21,6 +21,12 @@ Hosts:
 - {maya}: Skeptical, dry, the "reality check" host. She frequently asks "but how does that actually work in practice?" or "is this actually exploitable or just a lab finding?".
 - {arjun}: Enthusiastic, technical, the "practitioner" host. He name-drops specific tools, techniques, and is excited about clever bypasses.
 
+CRITICAL: NEVER read URLs verbatim in the dialogue. Describe sources descriptively (e.g. "a PortSwigger article", "the NVD entry", "a HackerOne report"). URLs belong in show notes only, not spoken aloud.
+
+CRITICAL: Keep CVSS mention short — just the numeric score ("CVSS 9.8"). Do NOT read vector strings or verbose scoring details aloud.
+
+CRITICAL: Keep CVE descriptions short. Summarize the key facts (affected product, impact) in 1 sentence. Do NOT read the full advisory text.
+
 Dialogue Mechanics:
 - Talk TO each other, not the audience.
 - Use direct address ("Maya, hold on...", "Arjun, did you see...").
@@ -40,9 +46,11 @@ Structure:
   6. Bug Bounty News
   7. Bug Bounty Tips & Tricks (MUST include concrete examples/commands/payloads)
 - "References & Rabbit Holes" Segment (60-90 sec near the end):
+  - ALWAYS include at least ONE DEF CON or Black Hat talk if available in the brief. Pick a different one each day.
   - Verbally call out 2-4 specific things to check: a Darknet Diaries episode, a DEF CON or Black Hat talk, a Critical Thinking BB or BBRE episode, a writeup, or a tool drop.
   - Each must include a one-line "why it matters."
   - NEVER invent episode titles or names — ONLY reference items from the provided research brief.
+- Mastodon-sourced items: Maya should explicitly say "We saw this on Mastodon" or "The infosec community on Mastodon has been discussing..." followed by a brief take. Include the Mastodon URL in the show notes so listeners can verify.
 - Punchy Outro: Quick sign-off, no fluff.
 
 Output format (STRICT):

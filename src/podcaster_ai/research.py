@@ -18,12 +18,17 @@ from .pipeline.sources import (
     ai_security_news,
     cisa_kev,
     conferences,
+    dfir_report,
     hackerone_hacktivity,
     hardware_hacking,
+    krebs_on_security,
     mastodon,
+    nitter_rss,
     nvd_recent,
     portswigger_rss,
     projectdiscovery_releases,
+    ransomwatch,
+    threat_intel_news,
     vendor_rss,
     youtube_transcripts,
 )
@@ -31,28 +36,45 @@ from .pipeline.sources.base import SOURCE_WEIGHTS
 
 log = structlog.get_logger(__name__)
 
+_URL_RE = re.compile(r"https?://\S+")
+_CVSS_VECTOR_RE = re.compile(r"CVSS:\d+\.\d+/\S+")
+
+
+def _strip_urls(text: str) -> str:
+    return re.sub(r"\s+", " ", _URL_RE.sub("", text)).strip()
+
+
+def _strip_cvss_vector(text: str) -> str:
+    return re.sub(r"\s+", " ", _CVSS_VECTOR_RE.sub("", text)).strip()
+
 
 SYSTEM_PROMPT = """You are the senior researcher for a daily two-host bug-bounty
 podcast called "Daily Recon". Your job is to turn a list of raw items (titles,
-URLs, summaries, metadata) into a tight research brief for the writers.
+summaries, metadata) into a tight research brief for the writers.
 
 Hard rules:
 - Use ONLY the provided items. Do NOT invent CVEs, vendors, exploits, quotes,
   numbers, or names. If a fact is not in the source material, omit it.
 - Every claim in your brief must be traceable to one of the supplied source URLs.
-- Prefer concrete, actionable detail (CVE IDs with CVSS, affected versions,
-  vendor advisories, KEV due dates) over generic commentary.
+- NEVER read URLs verbatim in your output. Refer to sources descriptively
+  (e.g., "a PortSwigger article" or "the NVD entry for CVE-2025-12345").
+- Prefer concrete, actionable detail (CVE IDs with CVSS score, affected versions,
+  vendor advisories, KEV due dates) over generic commentary. Keep CVE descriptions
+  short — just the key facts, not the full advisory text.
+- CVSS scores: only mention the numeric score briefly (e.g. "CVSS 9.8").
+  Do NOT read CVSS vector strings or verbose scoring details.
 - Group items into 3–5 thematic segments.
 - MANDATORY SECTIONS (if data exists):
   1. AI Security (focus on LLM vulnerabilities, ATLAS, and model bypasses)
   2. Hardware Hacking (focus on firmware, side-channels, and physical bypasses)
-  3. Conferences & Events (Black Hat, DEF CON, Hack.lu, etc.)
+   3. Conferences & Events (prioritise India & Asia — BSides, Nullcon, VULNCON, CIACON, etc.)
   4. Podcasts & Research (Darknet Diaries, Critical Thinking Bug Bounty, etc.)
 - Skip items that are duplicates or too thin to discuss.
 - Keep the tone analytical, not breathless.
 - Mastodon items are Tier 3 leads — must be cross-checked against authoritative
   sources (NVD, vendor advisories, PortSwigger, CISA KEV, etc.) before being
-  asserted as fact. Always cite the original Mastodon URL in show notes.
+  asserted as fact. Always cite the original Mastodon URL in show notes so
+  listeners can verify independently.
 
 Output STRICT JSON matching this shape:
 {
@@ -89,6 +111,11 @@ def _gather_all() -> list[Item]:
         ("ai_security", ai_security_news.fetch),
         ("hardware_hacking", hardware_hacking.fetch),
         ("conferences", conferences.fetch),
+        ("krebs", krebs_on_security.fetch),
+        ("threat_intel_news", threat_intel_news.fetch),
+        ("nitter", nitter_rss.fetch),
+        ("ransomwatch", ransomwatch.fetch),
+        ("dfir_report", dfir_report.fetch),
         ("mastodon", mastodon.fetch),
     ]
     out: list[Item] = []
@@ -182,16 +209,25 @@ def _dedupe_and_cap(items: list[Item]) -> list[Item]:
 
 
 def _items_to_prompt(items: list[Item]) -> str:
+    def _sanitise_extra(extra: dict[str, object]) -> dict[str, object]:
+        if extra is None:
+            return {}
+        sanitised = {}
+        for k, v in extra.items():
+            if k in ("cvss", "cve_id"):
+                sanitised[k] = v
+        return sanitised
+
     serialised = [
         {
-            "title": it.title,
-            "url": it.url,
-            "summary": it.summary[:1500],
+            "title": _strip_cvss_vector(_strip_urls(it.title)),
+            "url": "",
+            "summary": _strip_cvss_vector(_strip_urls(it.summary[:500])),
             "source": it.source,
             "published_at": it.published_at.astimezone(timezone.utc).isoformat()
             if it.published_at
             else None,
-            "extra": it.extra or {},
+            "extra": _sanitise_extra(it.extra or {}),
         }
         for it in items
     ]

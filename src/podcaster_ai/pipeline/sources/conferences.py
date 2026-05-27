@@ -13,10 +13,9 @@ log = structlog.get_logger(__name__)
 
 # Primary conference news/aggregator sources.
 FEEDS: Final[list[str]] = [
-    "https://infosec-conferences.com/feed/",  # Infosec Conferences
-    "https://hack.lu/index.xml",              # Hack.lu (Luxembourg)
-    "https://www.blackhat.com/rss/news.xml",  # Black Hat News
-    "https://defcon.org/html/defcon-rss.xml", # DEF CON
+    "https://infosec-conferences.com/feed/",  # Global conferences
+    "https://infosec-conferences.com/country/india/feed/",  # India-specific
+    "https://infosec-conferences.com/?s=black+hat+def+con&feed=rss2",  # BH/DEF CON mentions
 ]
 SOURCE: Final[str] = "conferences"
 

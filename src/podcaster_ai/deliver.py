@@ -21,6 +21,7 @@ class DeliveryError(RuntimeError):
 async def send_to_telegram(
     mp3_path: Path,
     shownotes_text: str,
+    pdf_path: Path | None,
     episode_title: str,
     dry_run: bool = False,
 ) -> None:
@@ -28,7 +29,8 @@ async def send_to_telegram(
 
     Args:
         mp3_path: path to the MP3 file.
-        shownotes_text: markdown show notes.
+        shownotes_text: markdown show notes (fallback if PDF unavailable).
+        pdf_path: path to PDF show notes (preferred).
         episode_title: episode title for the caption.
         dry_run: if True, log the action but don't actually send.
 
@@ -75,8 +77,18 @@ async def send_to_telegram(
         raise DeliveryError(f"Telegram audio send error: {exc}") from exc
 
     try:
-        # Send the show notes as a document (or as a message if it's short enough).
-        if len(shownotes_text) <= 4096:
+        # Send PDF show notes if available; fall back to markdown text.
+        doc_path = pdf_path if pdf_path and pdf_path.exists() else None
+        if doc_path:
+            with doc_path.open("rb") as f:
+                await bot.send_document(
+                    chat_id=chat_id,
+                    document=f,
+                    filename=f"shownotes_{episode_title.replace(' ', '_')}.pdf",
+                    caption="📋 Show notes",
+                )
+            log.info("deliver.shownotes_sent_as_pdf", chat_id=chat_id, path=str(doc_path))
+        elif len(shownotes_text) <= 4096:
             await bot.send_message(
                 chat_id=chat_id,
                 text=shownotes_text,
@@ -84,7 +96,6 @@ async def send_to_telegram(
             )
             log.info("deliver.shownotes_sent_as_message", chat_id=chat_id)
         else:
-            # Write to a temp file and send as a document.
             import tempfile
 
             with tempfile.NamedTemporaryFile(
@@ -116,6 +127,7 @@ async def send_to_telegram(
 def send_sync(
     mp3_path: Path,
     shownotes_text: str,
+    pdf_path: Path | None,
     episode_title: str,
     dry_run: bool = False,
 ) -> None:
@@ -123,7 +135,7 @@ def send_sync(
     import asyncio
 
     try:
-        asyncio.run(send_to_telegram(mp3_path, shownotes_text, episode_title, dry_run))
+        asyncio.run(send_to_telegram(mp3_path, shownotes_text, pdf_path, episode_title, dry_run))
     except DeliveryError:
         raise
     except Exception as exc:

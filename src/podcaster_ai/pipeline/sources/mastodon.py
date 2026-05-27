@@ -20,14 +20,16 @@ Configuration (env, all optional except ACCESS_TOKEN to enable the source):
 from __future__ import annotations
 
 import html
-import os
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Final, Optional
 
 import httpx
+
+import feedparser
 import structlog
 
+from ...config import get_settings
 from .base import Item, http_client, parse_dt
 
 log = structlog.get_logger(__name__)
@@ -39,30 +41,6 @@ DEFAULT_HASHTAGS: Final[str] = "infosec,cve,bugbounty,0day,threatintel"
 
 _TAG_RE = re.compile(r"<[^>]+>")
 _WS_RE = re.compile(r"\s+")
-
-
-def _env_str(name: str, default: str = "") -> str:
-    v = os.environ.get(name)
-    if v is None:
-        return default
-    return v.strip()
-
-
-def _env_bool(name: str, default: bool) -> bool:
-    raw = os.environ.get(name)
-    if raw is None or raw.strip() == "":
-        return default
-    return raw.strip().lower() in {"1", "true", "yes", "on", "y", "t"}
-
-
-def _env_int(name: str, default: int) -> int:
-    raw = os.environ.get(name)
-    if raw is None or raw.strip() == "":
-        return default
-    try:
-        return int(raw)
-    except ValueError:
-        return default
 
 
 def _strip_html(content: str) -> str:
@@ -168,21 +146,103 @@ def _get_json(
         return []
 
 
+# Public Mastodon instances for RSS-based fallback (no token needed).
+# Index 0 is tried first for all hashtags; if it returns empty, subsequent
+# instances are tried as fallback per-hashtag.
+RSS_INSTANCES: Final[list[str]] = [
+    "https://mastodon.social",
+    "https://infosec.exchange",
+]
+
+
+def _fetch_rss_hashtag(tag: str, cutoff: datetime) -> list[Item]:
+    """Fetch a hashtag feed via RSS (no auth required)."""
+    items: list[Item] = []
+    for instance in RSS_INSTANCES:
+        try:
+            url = f"{instance}/tags/{tag}.rss"
+            with http_client() as client:
+                resp = client.get(url, follow_redirects=True)
+                resp.raise_for_status()
+                parsed = feedparser.parse(resp.content)
+                if not parsed.entries:
+                    continue
+                for entry in parsed.entries:
+                    link = (entry.get("link") or "").strip()
+                    if not link:
+                        continue
+                    raw_title = (entry.get("title") or "").strip()
+                    raw_summary = (entry.get("summary") or entry.get("description") or "").strip()
+                    # Mastodon RSS often has null title; fall back to parsed summary.
+                    if not raw_title and raw_summary:
+                        raw_title = _strip_html(raw_summary)
+                    title = raw_title[:120].strip()
+                    if not title:
+                        continue
+                    published = parse_dt(entry.get("published") or entry.get("updated"))
+                    if published and published < cutoff:
+                        continue
+                    items.append(
+                        Item(
+                            title=title[:120],
+                            url=link,
+                            summary=_strip_html(raw_summary)[:500],
+                            source=SOURCE,
+                            published_at=published,
+                            extra={"tags": [tag], "source": f"RSS #{tag} on {instance}"},
+                        )
+                    )
+                if items:
+                    break
+        except Exception:
+            continue
+    return items
+
+
+def _fetch_rss(hashtags: list[str], cutoff: datetime) -> list[Item]:
+    """Fetch Mastodon via RSS fallback (no auth required)."""
+    items: list[Item] = []
+    seen: set[str] = set()
+    for tag in hashtags:
+        for item in _fetch_rss_hashtag(tag, cutoff):
+            key = item.url.lower()
+            if key not in seen:
+                seen.add(key)
+                items.append(item)
+    return items
+
+
+def _mastodon_settings() -> dict[str, Any]:
+    """Read Mastodon config from the central Settings (reads .env)."""
+    s = get_settings()
+    return {
+        "token": s.mastodon_access_token or "",
+        "base_url": s.mastodon_base_url or DEFAULT_BASE_URL,
+        "hashtags": [h.strip().lstrip("#") for h in (s.mastodon_hashtags or DEFAULT_HASHTAGS).split(",") if h.strip()],
+        "hours": max(1, s.mastodon_hours),
+        "include_home": bool(s.mastodon_include_home),
+        "include_bookmarks": bool(s.mastodon_include_bookmarks),
+    }
+
+
 def fetch() -> list[Item]:
     """Return recent Mastodon items. Always fail-soft; never raises."""
-    token = _env_str("MASTODON_ACCESS_TOKEN", "")
-    if not token:
-        log.info("mastodon.disabled", reason="MASTODON_ACCESS_TOKEN not set")
-        return []
-
-    base_url = _env_str("MASTODON_BASE_URL", DEFAULT_BASE_URL) or DEFAULT_BASE_URL
-    hashtags_csv = _env_str("MASTODON_HASHTAGS", DEFAULT_HASHTAGS) or DEFAULT_HASHTAGS
-    hashtags = [h.strip().lstrip("#") for h in hashtags_csv.split(",") if h.strip()]
-    include_home = _env_bool("MASTODON_INCLUDE_HOME", True)
-    include_bookmarks = _env_bool("MASTODON_INCLUDE_BOOKMARKS", True)
-    hours = max(1, _env_int("MASTODON_HOURS", 48))
-
+    cfg = _mastodon_settings()
+    token = cfg["token"]
+    base_url = cfg["base_url"]
+    hashtags = cfg["hashtags"]
+    hours = cfg["hours"]
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+    if not token:
+        log.info("mastodon.rss_fallback", hashtags=hashtags)
+        items = _fetch_rss(hashtags, cutoff)
+        log.info("mastodon.fetched", count=len(items), mode="rss", hashtags=hashtags)
+        return items
+
+    # Token is present — try API first, fall back to RSS if API returns nothing.
+    include_home = cfg["include_home"]
+    include_bookmarks = cfg["include_bookmarks"]
     statuses: list[dict[str, Any]] = []
 
     try:
@@ -198,8 +258,6 @@ def fetch() -> list[Item]:
                     )
                 )
             for tag in hashtags:
-                # The Mastodon API expects the bare tag (no leading #) in the path.
-                # Mastodon now requires ?limit=40 plus likely a different param shape.
                 statuses.extend(
                     _get_json(
                         client,
@@ -221,13 +279,11 @@ def fetch() -> list[Item]:
                 )
     except Exception as exc:  # noqa: BLE001
         log.warning("mastodon.fetch_failed", error=str(exc))
-        return []
+        statuses = []
 
     items: list[Item] = []
     seen_urls: set[str] = set()
     for status in statuses:
-        # Mastodon "reblog" wraps another status; prefer the original payload
-        # so we surface the source author, not the reblogger.
         if isinstance(status, dict) and status.get("reblog"):
             inner = status.get("reblog")
             if isinstance(inner, dict):
@@ -243,9 +299,15 @@ def fetch() -> list[Item]:
         seen_urls.add(key)
         items.append(item)
 
+    # If API returned nothing, fall back to RSS (token may be stale/invalid).
+    if not items:
+        log.info("mastodon.api_empty_rss_fallback", hashtags=hashtags)
+        items = _fetch_rss(hashtags, cutoff)
+
     log.info(
         "mastodon.fetched",
         count=len(items),
+        mode="api" if statuses else "rss_fallback",
         base_url=base_url,
         hashtags=hashtags,
         hours=hours,

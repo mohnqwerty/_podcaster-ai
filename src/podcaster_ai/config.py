@@ -73,6 +73,14 @@ class Settings(BaseSettings):
     max_items_per_source: int = 8
     max_total_items: int = 40
 
+    # ---------- Mastodon ----------
+    mastodon_access_token: Optional[str] = None
+    mastodon_base_url: str = "https://infosec.exchange"
+    mastodon_hashtags: str = "infosec,cve,bugbounty,0day,threatintel"
+    mastodon_include_home: bool = True
+    mastodon_include_bookmarks: bool = True
+    mastodon_hours: int = 48
+
     # ---------- Podcast metadata ----------
     podcast_title: str = "Daily Recon"
     host_maya_name: str = "Maya"

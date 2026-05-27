@@ -1,4 +1,4 @@
-"""Fetch AI-specific security news and advisories."""
+"""Fetch general security news from threat intel and infosec news outlets."""
 
 from __future__ import annotations
 
@@ -11,15 +11,16 @@ from .base import Item, http_client, parse_dt
 
 log = structlog.get_logger(__name__)
 
-# Primary AI security sources.
 FEEDS: Final[list[str]] = [
-    "https://venturebeat.com/feed/",     # VentureBeat AI + Security
+    "https://www.bleepingcomputer.com/feed/",
+    "https://feeds.feedburner.com/TheHackersNews",
+    "https://feeds.feedburner.com/SecurityWeek",
 ]
-SOURCE: Final[str] = "ai_security"
+SOURCE: Final[str] = "threat_intel_news"
 
 
 def fetch() -> list[Item]:
-    """Return recent AI security items. Fail-soft on error."""
+    """Return recent security news items. Fail-soft on error."""
     items: list[Item] = []
     try:
         with http_client() as client:
@@ -39,11 +40,11 @@ def fetch() -> list[Item]:
                             )
                         )
                 except Exception as exc:  # noqa: BLE001
-                    log.warning("ai_security.feed_failed", url=url, error=str(exc))
+                    log.warning("threat_intel_news.feed_failed", url=url, error=str(exc))
                     continue
     except Exception as exc:  # noqa: BLE001
-        log.warning("ai_security.fetch_failed", error=str(exc))
+        log.warning("threat_intel_news.fetch_failed", error=str(exc))
         return []
 
-    log.info("ai_security.fetched", count=len(items))
+    log.info("threat_intel_news.fetched", count=len(items))
     return items
