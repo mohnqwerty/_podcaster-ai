@@ -7,10 +7,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1
 
 # System deps: ffmpeg for audio concat, ca-certs for HTTPS feeds, tzdata for scheduling.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN     apt-get update && apt-get install -y --no-install-recommends \
         ffmpeg \
         ca-certificates \
         tzdata \
+        fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 
 # Create unprivileged user
