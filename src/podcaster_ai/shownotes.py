@@ -185,7 +185,16 @@ def generate_pdf(
             url = item.get("url") or ""
             clean_title = _clean_text(title, 100)
             if url:
-                pdf.multi_cell(0, 5, f"\u2022 {clean_title}", new_x="LMARGIN", new_y="NEXT")
+                link_id = pdf.add_link(url=url)
+                pdf.set_text_color(0, 0, 200)
+                pdf.write(5, f"\u2022 {clean_title}", link=link_id)
+                pdf.ln(5)
+                pdf.set_text_color(100, 100, 100)
+                pdf.set_font("DejaVu", "", 7)
+                pdf.write(5, f"   {url}")
+                pdf.ln(5)
+                pdf.set_text_color(0, 0, 0)
+                pdf.set_font("DejaVu", "", 9)
             else:
                 src = _format_item_source(item)
                 label = f"\u2022 {clean_title} ({src})" if src else f"\u2022 {clean_title}"
