@@ -1,8 +1,10 @@
-"""Text-to-speech layer: pluggable backends (edge-tts free, ElevenLabs paid)."""
+"""Text-to-speech layer: pluggable backends (edge-tts free, ElevenLabs paid, Sarvam AI)."""
 
 from __future__ import annotations
 
 import asyncio
+import base64
+import json
 from pathlib import Path
 from typing import Final
 
@@ -63,6 +65,43 @@ async def _elevenlabs_render(
         raise TTSError(f"ElevenLabs render failed: {exc}") from exc
 
 
+async def _sarvam_render(
+    speaker: str, text: str, api_key: str, model: str, pace: float, temperature: float
+) -> bytes:
+    """Render text to speech using Sarvam AI REST API (Bulbul v3)."""
+    import httpx
+
+    url = "https://api.sarvam.ai/text-to-speech"
+    headers = {
+        "Content-Type": "application/json",
+        "api-subscription-key": api_key,
+    }
+    payload = {
+        "text": text,
+        "target_language_code": "en-IN",
+        "speaker": speaker,
+        "model": model,
+        "pace": pace,
+        "temperature": temperature,
+        "speech_sample_rate": "24000",
+        "output_audio_codec": "mp3",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as exc:
+        raise TTSError(f"Sarvam AI render failed: {exc}") from exc
+
+    audios = data.get("audios")
+    if not audios or not audios[0]:
+        raise TTSError(f"Sarvam AI returned no audio for speaker={speaker}")
+
+    return base64.b64decode(audios[0])
+
+
 async def render_speaker_turns(
     turns: list[tuple[str, str]], output_path: Path
 ) -> None:
@@ -86,17 +125,16 @@ async def render_speaker_turns(
             continue
 
         speaker_upper = speaker.upper()
-        # Voice continuity: Pin voices in code, ignoring prompt overrides.
-        if speaker_upper == "MAYA":
-            voice = settings.maya_voice  # Default: en-US-AriaNeural
-        elif speaker_upper == "ARJUN":
-            voice = settings.arjun_voice  # Default: en-IN-PrabhatNeural
-        else:
+        if speaker_upper not in ("MAYA", "ARJUN"):
             raise TTSError(f"Unknown speaker: {speaker}")
 
         try:
             if settings.tts_provider == "edge":
-                audio_bytes = await _edge_tts_render(speaker_upper, voice, text, rate=settings.tts_rate)
+                edge_voice = (
+                    settings.maya_voice if speaker_upper == "MAYA"
+                    else settings.arjun_voice
+                )
+                audio_bytes = await _edge_tts_render(speaker_upper, edge_voice, text, rate=settings.tts_rate)
             elif settings.tts_provider == "elevenlabs":
                 if speaker_upper == "MAYA":
                     voice_id = settings.elevenlabs_maya_voice_id
@@ -113,6 +151,24 @@ async def render_speaker_turns(
                     text,
                     settings.elevenlabs_api_key or "",
                     settings.elevenlabs_model,
+                )
+            elif settings.tts_provider == "sarvam":
+                sarvam_speaker = (
+                    settings.sarvam_speaker_maya
+                    if speaker_upper == "MAYA"
+                    else settings.sarvam_speaker_arjun
+                )
+                if not settings.sarvam_api_key:
+                    raise TTSError(
+                        "Sarvam AI API key not set. Set SARVAM_API_KEY."
+                    )
+                audio_bytes = await _sarvam_render(
+                    sarvam_speaker,
+                    text,
+                    settings.sarvam_api_key,
+                    settings.sarvam_model,
+                    settings.sarvam_pace,
+                    settings.sarvam_temperature,
                 )
             else:
                 raise TTSError(f"Unknown TTS provider: {settings.tts_provider}")

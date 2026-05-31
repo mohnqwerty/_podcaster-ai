@@ -20,7 +20,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 LLMProvider = Literal["deepseek", "openrouter", "kimi", "qwen", "gemini", "groq"]
-TTSProvider = Literal["edge", "elevenlabs"]
+TTSProvider = Literal["edge", "elevenlabs", "sarvam"]
 
 
 class Settings(BaseSettings):
@@ -59,6 +59,13 @@ class Settings(BaseSettings):
     elevenlabs_maya_voice_id: Optional[str] = None
     elevenlabs_arjun_voice_id: Optional[str] = None
     elevenlabs_model: str = "eleven_turbo_v2_5"
+
+    sarvam_api_key: Optional[str] = None
+    sarvam_model: str = "bulbul:v3"
+    sarvam_speaker_maya: str = "neha"
+    sarvam_speaker_arjun: str = "shubh"
+    sarvam_pace: float = 1.0
+    sarvam_temperature: float = 0.6
 
     # ---------- Telegram ----------
     telegram_bot_token: Optional[str] = None
