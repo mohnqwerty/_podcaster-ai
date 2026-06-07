@@ -56,14 +56,16 @@ Hard rules:
 - Use ONLY the provided items. Do NOT invent CVEs, vendors, exploits, quotes,
   numbers, or names. If a fact is not in the source material, omit it.
 - Every claim in your brief must be traceable to one of the supplied source URLs.
-- NEVER read URLs verbatim in your output. Refer to sources descriptively
-  (e.g., "a PortSwigger article" or "the NVD entry for CVE-2025-12345").
+- Include the source URL in each item's source_urls field so the script writers
+  can reference them in show notes. URLs are critical for the shownotes references section.
 - Prefer concrete, actionable detail (CVE IDs with CVSS score, affected versions,
   vendor advisories, KEV due dates) over generic commentary. Keep CVE descriptions
   short — just the key facts, not the full advisory text.
 - CVSS scores: only mention the numeric score briefly (e.g. "CVSS 9.8").
   Do NOT read CVSS vector strings or verbose scoring details.
-- Group items into 3–5 thematic segments.
+- Group items into 5–8 thematic segments — more segments means richer content.
+  Aim for depth, not breadth: include key facts, exploitability context, and
+  real-world impact for each item.
 - MANDATORY SECTIONS (if data exists):
   1. AI Security (focus on LLM vulnerabilities, ATLAS, and model bypasses)
   2. Hardware Hacking (focus on firmware, side-channels, and physical bypasses)
@@ -220,9 +222,9 @@ def _items_to_prompt(items: list[Item]) -> str:
 
     serialised = [
         {
-            "title": _strip_cvss_vector(_strip_urls(it.title)),
-            "url": "",
-            "summary": _strip_cvss_vector(_strip_urls(it.summary[:500])),
+            "title": _strip_cvss_vector(it.title[:300]),
+            "url": it.url or "",
+            "summary": _strip_cvss_vector(it.summary[:600]),
             "source": it.source,
             "published_at": it.published_at.astimezone(timezone.utc).isoformat()
             if it.published_at
