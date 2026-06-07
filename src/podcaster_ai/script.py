@@ -58,8 +58,12 @@ Output format (STRICT):
 - Plain text, no markdown, no stage directions in brackets.
 - Each line begins with either "MAYA:" or "ARJUN:" followed by a single space.
 - One speaker turn per line. Blank lines separate SEGMENTS only.
+- NEVER read URLs out loud in the dialogue — they belong in shownotes only.
 - After the dialogue, append a line with exactly:    ---SHOWNOTES---
-  and then a markdown show-notes draft. The shownotes MUST include a "References & Rabbit Holes" section with the title, brief description, and full URL for every reference mentioned in the episode.
+  and then a markdown show-notes draft. The shownotes MUST include a
+  "References & Rabbit Holes" section with the title, brief description, and
+  full URL (as a clickable `[title](url)` markdown link) for every reference
+  mentioned in the episode.
 """
 
 USER_TEMPLATE = """Here is today's research brief (JSON). Convert it into a

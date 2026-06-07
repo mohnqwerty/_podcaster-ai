@@ -56,6 +56,10 @@ Hard rules:
 - Use ONLY the provided items. Do NOT invent CVEs, vendors, exploits, quotes,
   numbers, or names. If a fact is not in the source material, omit it.
 - Every claim in your brief must be traceable to one of the supplied source URLs.
+- CROSS-REFERENCE: When an item appears in multiple sources (e.g., a CVE on
+  NVD AND a PortSwigger article AND a Mastodon post), flag it as corroborated.
+  Prefer the authoritative source (NVD, vendor advisory, CISA KEV) over
+  social-media or news-aggregator takes for factual claims.
 - Include the source URL in each item's source_urls field so the script writers
   can reference them in show notes. URLs are critical for the shownotes references section.
 - Prefer concrete, actionable detail (CVE IDs with CVSS score, affected versions,
