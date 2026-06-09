@@ -18,61 +18,44 @@ log = structlog.get_logger(__name__)
 SYSTEM_PROMPT = """You are the head writer for "Daily Recon", a daily two-host podcast covering bug bounty, vulnerability research, and offensive security.
 
 Hosts:
-- {maya}: Skeptical, dry, the "reality check" host. She frequently asks "but how does that actually work in practice?" or "is this actually exploitable or just a lab finding?". She pushes back on hype and demands practical context.
+- {maya}: Skeptical, dry, the "reality check" host. She pushes back on hype and demands practical context: "but how does that actually work in practice?", "is this actually exploitable or just a lab finding?".
 - {arjun}: Enthusiastic, technical, the "practitioner" host. He name-drops specific tools, techniques, and is excited about clever bypasses. He provides the technical depth.
 
-CRITICAL: NEVER read URLs verbatim in the dialogue. Describe sources descriptively (e.g. "a PortSwigger article", "the NVD entry", "a HackerOne report"). URLs belong in show notes only, not spoken aloud.
+ABSOLUTE RULES (never violate):
+1. NEVER read URLs verbatim in dialogue — describe sources descriptively. URLs go in shownotes only.
+2. CVSS: numeric score only ("CVSS 9.8"). No vector strings.
+3. CVE descriptions: 1-2 sentences max. Affected product + impact.
+4. NEVER invent items — ONLY discuss what is in the provided brief segments.
+5. NEVER invent conference talks, Darknet Diaries episodes, or podcast episodes.
+6. If the brief has no DEF CON / Black Hat talks, do NOT mention any.
 
-CRITICAL: Keep CVSS mention short — just the numeric score ("CVSS 9.8"). Do NOT read vector strings or verbose scoring details aloud.
-
-CRITICAL: Keep CVE descriptions concise — affected product, impact, attack vector in 1-2 sentences. Do NOT read the full advisory text.
+DIALOGUE LENGTH: Write exactly 50-70 dialogue lines (MAYA/ARJUN turns). The episode must be 8-12 minutes when spoken. This is non-negotiable.
 
 Dialogue Mechanics:
-- Talk TO each other, not the audience.
-- Use direct address ("Maya, hold on...", "Arjun, did you see...").
-- Include interruptions, reactions ("oh come on", "wait, really?", "exactly!"), callbacks to earlier points, and mutual questions.
-- Turns should be 2-4 sentences each. Go deep on technical details: explain the exploit technique, the bypass, the misconfiguration. Avoid surface-level summary.
-- Conflict: At least two disagreements or skeptical debates per episode (e.g., Maya doubting the impact of a finding while Arjun defends its cleverness).
-- Target episode length: 8-12 minutes. Every segment should get substantive coverage. If the brief has rich content, use it.
+- Turns are 2-4 sentences each. Include technical depth: exploit techniques, attack vectors, affected versions, mitigations.
+- Talk TO each other, use direct address ("Maya, hold on...", "Arjun, did you see...").
+- Include interruptions, reactions ("oh come on", "wait, really?", "exactly!"), callbacks.
+- At least 2 disagreements or skeptical debates per episode.
+- Concrete technical details: when discussing a CVE, include the attack vector and impact. When discussing a tool/technique, include specific commands or payloads.
 
-Structure:
-- Cold-open hook in the first 15 seconds: Start with a punchy, intriguing fact or a brief debate already in progress.
-- Coverage Requirements (Cover every topic unless there is zero news in the last 72h):
-  1. VA / Vulnerability Findings — explain the actual bug, attack vector, affected versions, mitigations
-  2. SOC / Incident Response Stories — timeline, TTPs, indicators
-  3. Threat Intelligence — actor, motivation, targeting
-  4. NEW Ransomware Groups (debuts/rebrands) — infrastructure, victimology
-  5. Ransomware Incidents (claims/leaks) — sector, impact, ransom
-  6. Bug Bounty News — program changes, record payouts
-  7. Bug Bounty Tips & Tricks — concrete payloads, tools, recon techniques
-- "References & Rabbit Holes" Segment (90-120 sec near the end — this is critical):
-  - ALWAYS include at least ONE DEF CON or Black Hat talk if available in the brief. Pick a different one each day.
-  - Verbally call out 3-5 specific things to check: a Darknet Diaries episode, a DEF CON or Black Hat talk, a Critical Thinking BB or BBRE episode, a writeup, or a tool drop.
-  - Each must include a one-line "why it matters" plus the actual source (e.g., "Arjun's take on the PortSwigger research into XSS in PDF generators").
-  - The shownotes section must list every reference with its full URL for listeners to follow up.
-  - NEVER invent episode titles or names — ONLY reference items from the provided research brief.
-- Mastodon-sourced items: Maya should explicitly say "We saw this on Mastodon" or "The infosec community on Mastodon has been discussing..." followed by a brief take. Include the Mastodon URL in the show notes so listeners can verify.
-- Punchy Outro: Quick sign-off, no fluff.
+Structure (cover segments from the brief in order, ~5-8 lines per segment):
+1. Cold-open hook (first 2-3 lines): Start mid-debate or with a punchy fact from today's news.
+2-5. Cover each segment from the brief with technical depth. Explain the actual bugs, not just that they exist.
+6. "References & Rabbit Holes" segment (8-12 lines):
+   - Pick 3-4 real items from the brief's References list.
+   - For each: "why it matters" + what to look for.
+   - Include Mastodon items with "We saw this on Mastodon".
+   - Mention the specific source descriptively (e.g., "the PortSwigger research on XSS in PDF generators").
+7. Punchy outro (2-3 lines): Quick sign-off, no fluff.
 
 Output format (STRICT):
-- Plain text, no markdown, no stage directions in brackets.
-- Each line begins with either "MAYA:" or "ARJUN:" followed by a single space.
-- One speaker turn per line. Blank lines separate SEGMENTS only.
-- NEVER read URLs out loud in the dialogue — they belong in shownotes only.
-- After the dialogue, append a line with exactly:    ---SHOWNOTES---
-  and then a markdown show-notes draft. The shownotes MUST include a
-  "References & Rabbit Holes" section with the title, brief description, and
-  full URL (as a clickable `[title](url)` markdown link) for every reference
-  mentioned in the episode.
+- Plain text. Each line: "MAYA:" or "ARJUN:" followed by a single space and the dialogue.
+- One speaker turn per line. Blank lines between segments only.
+- After the dialogue, append:    ---SHOWNOTES---
+  Then a markdown shownotes draft with:
+  - "## References & Rabbit Holes" section with `[title](url)` for every referenced item.
+  - Full transcript reproduced below.
 """
-
-USER_TEMPLATE = """Here is today's research brief (JSON). Convert it into a
-two-host script following every rule in the system prompt.
-
-```json
-{brief_json}
-```"""
-
 
 @dataclass(slots=True)
 class ScriptResult:
@@ -110,10 +93,24 @@ def _parse_turns(dialogue: str) -> list[tuple[str, str]]:
 def write_script(brief: dict[str, Any]) -> ScriptResult:
     """Generate the two-host script from a research brief."""
     settings = get_settings()
-    # Brief may carry an internal "_items" key — drop it for the LLM payload.
     public_brief = {k: v for k, v in brief.items() if not k.startswith("_")}
-    user_msg = USER_TEMPLATE.format(
-        brief_json=json.dumps(public_brief, ensure_ascii=False, indent=2)
+    # Include a curated references list from the raw items for the LLM
+    raw_items = brief.get("_items") or []
+    refs_for_prompt = []
+    for it in raw_items[:30]:
+        title = it.get("title") or ""
+        url = it.get("url") or ""
+        source = it.get("source") or ""
+        if url:
+            refs_for_prompt.append(f"- [{title}]({url})  (source: {source})")
+    refs_text = "\n".join(refs_for_prompt) if refs_for_prompt else "No references available."
+
+    user_msg = (
+        "Write a two-host script from this research brief.\n\n"
+        "BRIEF:\n"
+        f"```json\n{json.dumps(public_brief, ensure_ascii=False, indent=2)}\n```\n\n"
+        "AVAILABLE REFERENCES (use ONLY these in the References & Rabbit Holes segment — do NOT invent any):\n"
+        f"{refs_text}\n"
     )
     system = SYSTEM_PROMPT.format(
         maya=settings.host_maya_name,
