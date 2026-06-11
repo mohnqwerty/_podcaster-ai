@@ -123,13 +123,13 @@ def generate_shownotes(
                 key_point = _clean_text(key_facts[0], 250) if key_facts else ""
 
                 # Find source citation
-                item_citations: set[str] = set()
+                item_citations: set[int] = set()
                 for src_item in raw_items:
                     if src_item.get("title", "").strip() == headline.strip():
                         src = src_item.get("source", "")
                         if src in cit_map:
-                            item_citations.add(f"[{cit_map[src]}]")
-                cit_str = " ".join(sorted(item_citations, key=int))
+                            item_citations.add(int(cit_map[src]))
+                cit_str = " ".join(f"[{n}]" for n in sorted(item_citations))
 
                 item_text = headline
                 if key_point:
@@ -252,13 +252,13 @@ def generate_pdf(
                 key_facts = item.get("key_facts") or []
                 key_point = _clean_text(key_facts[0], 200) if key_facts else ""
 
-                item_citations: set[str] = set()
+                item_citations: set[int] = set()
                 for src_item in raw_items:
                     if src_item.get("title", "").strip() == headline.strip():
                         src = src_item.get("source", "")
                         if src in cit_map:
-                            item_citations.add(f"[{cit_map[src]}]")
-                cit_str = " ".join(sorted(item_citations, key=int))
+                            item_citations.add(int(cit_map[src]))
+                cit_str = " ".join(f"[{n}]" for n in sorted(item_citations))
 
                 item_text = headline
                 if key_point:
@@ -286,10 +286,9 @@ def generate_pdf(
             pick = picks[i % len(picks)]
             label = f"\u2022 {clean_title} — {pick}'s pick: dig into the details from {_get_source_attribution(src)}."
             if url:
-                link_id = pdf.add_link(url=url)
                 pdf.set_text_color(0, 0, 200)
                 pdf.set_font("DejaVu", "", 8)
-                pdf.write(4.5, label, link=link_id)
+                pdf.write(4.5, label, link=url)
                 pdf.ln(5)
                 pdf.set_text_color(0, 0, 0)
             else:
