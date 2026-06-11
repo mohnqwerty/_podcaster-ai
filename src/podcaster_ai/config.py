@@ -19,7 +19,7 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-LLMProvider = Literal["deepseek", "openrouter", "kimi", "qwen", "gemini", "groq"]
+LLMProvider = Literal["deepseek", "openrouter", "kimi", "qwen", "gemini", "groq", "kimchi"]
 TTSProvider = Literal["edge", "elevenlabs"]
 
 
@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     dashscope_api_key: Optional[str] = None
     gemini_api_key: Optional[str] = None
     groq_api_key: Optional[str] = None
+    kimchi_api_key: Optional[str] = None
 
     # ---------- TTS ----------
     tts_provider: TTSProvider = "edge"
@@ -114,6 +115,7 @@ class Settings(BaseSettings):
             "qwen": self.dashscope_api_key,
             "gemini": self.gemini_api_key,
             "groq": self.groq_api_key,
+            "kimchi": self.kimchi_api_key,
         }[self.llm_provider]
 
     def llm_endpoint(self) -> str:
@@ -126,6 +128,7 @@ class Settings(BaseSettings):
             "qwen": "https://dashscope.aliyuncs.com/compatible-mode/v1",
             "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/",
             "groq": "https://api.groq.com/openai/v1",
+            "kimchi": "https://llm.kimchi.dev/openai/v1",
         }[self.llm_provider]
 
 
