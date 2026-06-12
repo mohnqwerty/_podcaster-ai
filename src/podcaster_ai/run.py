@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -51,6 +52,7 @@ def main(dry_run: bool = False) -> int:
     import json
 
     brief_path.write_text(json.dumps(brief, ensure_ascii=False, indent=2))
+    os.chmod(brief_path, 0o666)
     log.info("pipeline.brief_saved", path=str(brief_path))
 
     # Stage 2: Script — turn brief into two-host dialogue.
@@ -62,12 +64,14 @@ def main(dry_run: bool = False) -> int:
 
     script_path = output_dir / f"{date_str}_script.txt"
     script_path.write_text(script.dialogue)
+    os.chmod(script_path, 0o666)
     log.info("pipeline.script_saved", path=str(script_path))
 
     # Stage 3: TTS — render dialogue to MP3.
     mp3_path = output_dir / f"{date_str}_episode.mp3"
     try:
         render_async(script.turns, mp3_path)
+        mp3_path.chmod(0o666)
     except TTSError as exc:
         log.error("pipeline.tts_failed", error=str(exc))
         return 1
@@ -83,11 +87,14 @@ def main(dry_run: bool = False) -> int:
 
     md_path = output_dir / f"{date_str}_shownotes.md"
     md_path.write_text(shownotes_md, encoding="utf-8")
+    os.chmod(md_path, 0o666)
     log.info("pipeline.shownotes_saved", path=str(md_path))
 
     pdf_path = output_dir / f"{date_str}_shownotes.pdf"
     try:
         generate_pdf(script, brief, pdf_path, episode_date)
+        if pdf_path.exists():
+            os.chmod(pdf_path, 0o666)
     except Exception as exc:  # noqa: BLE001
         log.warning("pipeline.pdf_failed", error=str(exc), path=str(pdf_path))
 

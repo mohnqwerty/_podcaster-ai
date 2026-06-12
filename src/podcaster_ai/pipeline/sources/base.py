@@ -29,6 +29,15 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "dfir_report": 0.9,    # In-depth DFIR incident analysis
     "nitter": 0.6,         # Twitter/X via Nitter RSS — Tier 3 leads, cross-check
     "mastodon": 0.5,       # Tier 3 lead — cross-check before asserting as fact
+    "the_hacker_news": 0.8,
+    "dark_reading": 0.8,
+    "infosecurity_magazine": 0.8,
+    "cisco_talos": 0.9,
+    "microsoft_security": 0.8,
+    "project_zero": 1.0,
+    "trail_of_bits": 0.9,
+    "cert_in": 0.9,
+    "cyberwire_daily": 0.7,
 }
 
 DEFAULT_TIMEOUT = httpx.Timeout(20.0, connect=10.0)
