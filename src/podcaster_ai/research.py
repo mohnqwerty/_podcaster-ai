@@ -274,14 +274,18 @@ def build_research_brief() -> dict[str, Any]:
         f"```json\n{_items_to_prompt(short_list)}\n```"
     )
 
+    settings = get_settings()
+    chat_kwargs: dict[str, Any] = {
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_payload},
+        ],
+        "json_mode": True,
+    }
+    if settings.research_llm_model:
+        chat_kwargs["model"] = settings.research_llm_model
     try:
-        raw = chat(
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": user_payload},
-            ],
-            json_mode=True,
-        )
+        raw = chat(**chat_kwargs)
         brief = _safe_json_parse(raw)
     except Exception as exc:  # noqa: BLE001
         log.warning("research.llm_failed", error=str(exc))

@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     # ---------- LLM ----------
     llm_provider: LLMProvider = "deepseek"
     llm_model: str = "deepseek-chat"
+    research_llm_model: Optional[str] = None
     llm_base_url: Optional[str] = None
     llm_temperature: float = 0.4
     llm_timeout_seconds: int = 120
