@@ -1,0 +1,20 @@
+[Unit]
+Description=Daily Recon — Telegram bot (listen for /generate)
+Documentation=https://github.com/mohnqwerty/_podcaster-ai
+Wants=network-online.target docker.service
+After=network-online.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/_podcaster-ai
+ExecStart=/usr/bin/docker compose -f /opt/_podcaster-ai/docker-compose.yml up bot
+ExecStop=/usr/bin/docker compose -f /opt/_podcaster-ai/docker-compose.yml stop bot
+Restart=always
+RestartSec=10
+TimeoutStopSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -14,3 +14,17 @@ services:
     # Keep stdout/stderr line-buffered for journald / docker logs.
     tty: false
     stdin_open: false
+
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: podcaster-ai:latest
+    container_name: podcaster-ai-bot
+    env_file:
+      - .env
+    volumes:
+      - ./out:/app/out
+    # Long-running Telegram bot listening for /generate commands.
+    restart: always
+    entrypoint: ["python", "-m", "podcaster_ai.bot"]
