@@ -1,51 +1,33 @@
-"""Fetch the PortSwigger Research RSS feed.
-
-URL: https://portswigger.net/research/rss
-"""
+"""Fetch PortSwigger research articles via Playwright for full content."""
 
 from __future__ import annotations
 
-from typing import Final
+import asyncio
 
-import feedparser
 import structlog
 
-from .base import Item, http_client, parse_dt
+from .base import Item
+from .scraper import fetch_items
 
 log = structlog.get_logger(__name__)
 
-FEED_URL: Final[str] = "https://portswigger.net/research/rss"
-SOURCE: Final[str] = "portswigger"
+SOURCE = "portswigger"
+LISTING_URL = "https://portswigger.net/research"
 
 
 def fetch() -> list[Item]:
-    """Return recent PortSwigger Research posts as Items. Fail-soft on error."""
     try:
-        with http_client() as client:
-            resp = client.get(FEED_URL)
-            resp.raise_for_status()
-            parsed = feedparser.parse(resp.content)
-    except Exception as exc:  # noqa: BLE001
+        return asyncio.run(
+            fetch_items(
+                source=SOURCE,
+                listing_url=LISTING_URL,
+                link_selector="a[href*='/research/']",
+                title_selector="h2, h3, .title",
+                summary_selector="p, .summary",
+                wait_selector="article, .research-card, main",
+                max_items=12,
+            )
+        )
+    except Exception as exc:
         log.warning("portswigger.fetch_failed", error=str(exc))
         return []
-
-    items: list[Item] = []
-    for entry in parsed.entries or []:
-        try:
-            items.append(
-                Item(
-                    title=(entry.get("title") or "").strip(),
-                    url=(entry.get("link") or "").strip(),
-                    summary=(entry.get("summary") or entry.get("description") or "").strip(),
-                    source=SOURCE,
-                    published_at=parse_dt(
-                        entry.get("published") or entry.get("updated")
-                    ),
-                )
-            )
-        except Exception as exc:  # noqa: BLE001
-            log.debug("portswigger.entry_skipped", error=str(exc))
-            continue
-
-    log.info("portswigger.fetched", count=len(items))
-    return items

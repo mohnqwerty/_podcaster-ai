@@ -1,51 +1,33 @@
-"""Fetch security conference news and upcoming event details."""
+"""Fetch security conference news via Playwright for full article content."""
 
 from __future__ import annotations
 
-from typing import Final
+import asyncio
 
-import feedparser
 import structlog
 
-from .base import Item, http_client, parse_dt
+from .base import Item
+from .scraper import fetch_items
 
 log = structlog.get_logger(__name__)
 
-# Primary conference news/aggregator sources.
-FEEDS: Final[list[str]] = [
-    "https://infosec-conferences.com/feed/",  # Global conferences
-    "https://infosec-conferences.com/country/india/feed/",  # India-specific
-    "https://infosec-conferences.com/?s=black+hat+def+con&feed=rss2",  # BH/DEF CON mentions
-]
-SOURCE: Final[str] = "conferences"
+SOURCE = "conferences"
+LISTING_URL = "https://infosec-conferences.com"
 
 
 def fetch() -> list[Item]:
-    """Return recent conference news and event details. Fail-soft on error."""
-    items: list[Item] = []
     try:
-        with http_client() as client:
-            for url in FEEDS:
-                try:
-                    resp = client.get(url)
-                    resp.raise_for_status()
-                    parsed = feedparser.parse(resp.content)
-                    for entry in parsed.entries or []:
-                        items.append(
-                            Item(
-                                title=(entry.get("title") or "").strip(),
-                                url=(entry.get("link") or "").strip(),
-                                summary=(entry.get("summary") or entry.get("description") or "").strip(),
-                                source=SOURCE,
-                                published_at=parse_dt(entry.get("published") or entry.get("updated")),
-                            )
-                        )
-                except Exception as exc:  # noqa: BLE001
-                    log.warning("conferences.feed_failed", url=url, error=str(exc))
-                    continue
-    except Exception as exc:  # noqa: BLE001
+        return asyncio.run(
+            fetch_items(
+                source=SOURCE,
+                listing_url=LISTING_URL,
+                link_selector="a[href*='infosec-conferences.com']",
+                title_selector="h2, h3, .entry-title, .post-title",
+                summary_selector="p, .excerpt",
+                wait_selector="article, main, #primary",
+                max_items=10,
+            )
+        )
+    except Exception as exc:
         log.warning("conferences.fetch_failed", error=str(exc))
         return []
-
-    log.info("conferences.fetched", count=len(items))
-    return items

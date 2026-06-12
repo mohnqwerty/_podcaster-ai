@@ -1,70 +1,33 @@
-"""Krebs on Security source.
-
-Fetches latest articles from RSS feed.
-Capped to 1 latest article per run.
-"""
+"""Fetch Krebs on Security articles via Playwright for full content."""
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-from typing import Final
+import asyncio
 
-import feedparser
 import structlog
 
-from .base import Item, http_client, parse_dt
+from .base import Item
+from .scraper import fetch_items
 
 log = structlog.get_logger(__name__)
 
-SOURCE: Final[str] = "krebs"
-FEED_URL: Final[str] = "https://krebsonsecurity.com/feed/"
+SOURCE = "krebs"
+LISTING_URL = "https://krebsonsecurity.com"
 
 
 def fetch() -> list[Item]:
-    """Return latest Krebs on Security article."""
-
     try:
-        with http_client() as client:
-            resp = client.get(FEED_URL)
-            resp.raise_for_status()
-            parsed = feedparser.parse(resp.content)
-    except Exception as exc:  # noqa: BLE001
+        return asyncio.run(
+            fetch_items(
+                source=SOURCE,
+                listing_url=LISTING_URL,
+                link_selector="article a[href*='krebsonsecurity.com']",
+                title_selector="h2.entry-title, h1",
+                summary_selector=".entry-summary, .entry-content p",
+                wait_selector="article, .hentry",
+                max_items=3,
+            )
+        )
+    except Exception as exc:
         log.warning("krebs.fetch_failed", error=str(exc))
         return []
-
-    items: list[Item] = []
-    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
-
-    for entry in parsed.entries or []:
-        try:
-            published = parse_dt(entry.get("published") or entry.get("updated"))
-            if published is None or published < cutoff:
-                continue
-
-            link = (entry.get("link") or "").strip()
-            if not link:
-                continue
-
-            title = (entry.get("title") or "Untitled article").strip()
-            summary = (entry.get("summary") or entry.get("description") or "").strip()
-            if not summary:
-                continue
-
-            items.append(
-                Item(
-                    title=title,
-                    url=link,
-                    summary=summary,
-                    source=SOURCE,
-                    published_at=published,
-                )
-            )
-            # Cap to 1 latest article per run
-            if len(items) >= 1:
-                break
-        except Exception as exc:  # noqa: BLE001
-            log.debug("krebs.entry_skipped", error=str(exc))
-            continue
-
-    log.info("krebs.fetched", count=len(items))
-    return items

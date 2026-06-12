@@ -9,6 +9,9 @@ tenacity>=8.2,<9
 httpx>=0.27,<1
 feedparser>=6.0,<7
 
+# Browser automation (replaces RSS for full article extraction)
+playwright>=1.48,<2
+
 # PDF shownotes
 fpdf2>=2.7,<3
 

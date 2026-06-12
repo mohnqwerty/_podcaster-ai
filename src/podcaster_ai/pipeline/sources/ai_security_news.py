@@ -1,49 +1,33 @@
-"""Fetch AI-specific security news and advisories."""
+"""Fetch AI security news via Playwright for full article content."""
 
 from __future__ import annotations
 
-from typing import Final
+import asyncio
 
-import feedparser
 import structlog
 
-from .base import Item, http_client, parse_dt
+from .base import Item
+from .scraper import fetch_items
 
 log = structlog.get_logger(__name__)
 
-# Primary AI security sources.
-FEEDS: Final[list[str]] = [
-    "https://venturebeat.com/feed/",     # VentureBeat AI + Security
-]
-SOURCE: Final[str] = "ai_security"
+SOURCE = "ai_security"
+LISTING_URL = "https://venturebeat.com/category/ai/"
 
 
 def fetch() -> list[Item]:
-    """Return recent AI security items. Fail-soft on error."""
-    items: list[Item] = []
     try:
-        with http_client() as client:
-            for url in FEEDS:
-                try:
-                    resp = client.get(url)
-                    resp.raise_for_status()
-                    parsed = feedparser.parse(resp.content)
-                    for entry in parsed.entries or []:
-                        items.append(
-                            Item(
-                                title=(entry.get("title") or "").strip(),
-                                url=(entry.get("link") or "").strip(),
-                                summary=(entry.get("summary") or entry.get("description") or "").strip(),
-                                source=SOURCE,
-                                published_at=parse_dt(entry.get("published") or entry.get("updated")),
-                            )
-                        )
-                except Exception as exc:  # noqa: BLE001
-                    log.warning("ai_security.feed_failed", url=url, error=str(exc))
-                    continue
-    except Exception as exc:  # noqa: BLE001
+        return asyncio.run(
+            fetch_items(
+                source=SOURCE,
+                listing_url=LISTING_URL,
+                link_selector="a[href*='venturebeat.com']",
+                title_selector="h2, h3, .article-title, .entry-title",
+                summary_selector="p, .excerpt, .summary",
+                wait_selector="article, main, .river",
+                max_items=7,
+            )
+        )
+    except Exception as exc:
         log.warning("ai_security.fetch_failed", error=str(exc))
         return []
-
-    log.info("ai_security.fetched", count=len(items))
-    return items
