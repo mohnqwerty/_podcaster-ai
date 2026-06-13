@@ -406,9 +406,9 @@ def _items_to_prompt(items: list[Item]) -> str:
 
     serialised = [
         {
-            "title": _strip_cvss_vector(it.title[:300]),
+            "title": _strip_cvss_vector(it.title[:150]),
             "url": it.url or "",
-            "summary": _strip_cvss_vector(it.summary[:600]),
+            "summary": _strip_cvss_vector(it.summary[:200]),
             "source": it.source,
             "published_at": it.published_at.astimezone(timezone.utc).isoformat()
             if it.published_at
@@ -468,15 +468,36 @@ def build_research_brief() -> dict[str, Any]:
         raw = chat(**chat_kwargs)
         brief = _safe_json_parse(raw)
     except Exception as exc:  # noqa: BLE001
-        log.warning("research.llm_failed", error=str(exc))
-        # Last-resort fallback: a categorised brief built directly from items
-        # so downstream stages still produce a structured, linkable episode.
-        brief = {
-            "title": "Daily Recon — fallback brief",
-            "tagline": "LLM brief unavailable; here's the day's coverage, grouped by source family.",
-            "segments": _categorize_fallback_brief(short_list),
-            "closing_notes": "Fallback brief — verify everything yourself.",
-        }
+        # Self-correct: if the LLM rejected the prompt for being too large
+        # (Groq returns 413, OpenAI returns 400 with 'context_length_exceeded'),
+        # halve the item list and retry once before giving up.
+        if "413" in str(exc) or "context_length" in str(exc).lower() or "too large" in str(exc).lower():
+            log.warning("research.llm_prompt_too_large", items=len(short_list))
+            trimmed = short_list[: max(10, len(short_list) // 2)]
+            chat_kwargs["messages"][1]["content"] = (
+                "Build the research brief from these raw items.\n\n"
+                f"```json\n{_items_to_prompt(trimmed)}\n```"
+            )
+            try:
+                raw = chat(**chat_kwargs)
+                brief = _safe_json_parse(raw)
+                log.info("research.llm_retry_succeeded", items=len(trimmed))
+                short_list = trimmed
+            except Exception as exc2:  # noqa: BLE001
+                log.warning("research.llm_retry_failed", error=str(exc2))
+                brief = None
+        else:
+            brief = None
+        if brief is None:
+            log.warning("research.llm_failed", error=str(exc))
+            # Last-resort fallback: a categorised brief built directly from items
+            # so downstream stages still produce a structured, linkable episode.
+            brief = {
+                "title": "Daily Recon — fallback brief",
+                "tagline": "LLM brief unavailable; here's the day's coverage, grouped by source family.",
+                "segments": _categorize_fallback_brief(short_list),
+                "closing_notes": "Fallback brief — verify everything yourself.",
+            }
 
     brief["_items"] = [it.to_dict() for it in short_list]
     log.info(
