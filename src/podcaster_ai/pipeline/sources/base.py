@@ -38,6 +38,21 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "trail_of_bits": 0.9,
     "cert_in": 0.9,
     "cyberwire_daily": 0.7,
+    # Elite-hacker learning tier (newly enabled/added)
+    "reddit_netsec": 0.85,         # Community PoCs, writeups
+    "reddit_bugbounty": 0.85,      # Methodology, top hunter tips
+    "owasp": 1.0,                  # The curriculum
+    "owasp_blog": 0.9,
+    "owasp_top10": 1.0,
+    "owasp_asvs": 0.9,
+    "owasp_cheatsheets": 0.95,
+    "owasp_wstg": 0.95,
+    "exploit_db": 0.9,             # Public exploits — read to learn
+    "github_advisories": 0.9,      # Supply-chain vulns
+    "darknet_diaries": 0.8,        # Story-driven — motivation + context
+    "risky_business": 0.6,         # Industry commentary
+    "critical_thinking": 0.85,     # Bug bounty methodology
+    "bbre": 0.85,                  # Reads bug reports
 }
 
 DEFAULT_TIMEOUT = httpx.Timeout(20.0, connect=10.0)

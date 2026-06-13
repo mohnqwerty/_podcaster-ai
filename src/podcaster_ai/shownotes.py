@@ -39,6 +39,31 @@ def _get_source_attribution(source: str) -> str:
         "mastodon": "Mastodon",
         "vendor_rss": "Vendor RSS",
         "youtube": "YouTube",
+        "the_hacker_news": "The Hacker News",
+        "dark_reading": "Dark Reading",
+        "infosecurity_magazine": "Infosecurity Magazine",
+        "cisco_talos": "Cisco Talos",
+        "microsoft_security": "Microsoft Security",
+        "project_zero": "Google Project Zero",
+        "trail_of_bits": "Trail of Bits",
+        "cert_in": "CERT-In",
+        "cyberwire_daily": "CyberWire Daily",
+        "reddit_netsec": "Reddit r/netsec",
+        "reddit_bugbounty": "Reddit r/bugbounty",
+        "owasp": "OWASP",
+        "owasp_blog": "OWASP Blog",
+        "owasp_top10": "OWASP Top 10",
+        "owasp_asvs": "OWASP ASVS",
+        "owasp_cheatsheets": "OWASP Cheat Sheets",
+        "owasp_wstg": "OWASP WSTG",
+        "exploit_db": "Exploit-DB",
+        "github_advisories": "GitHub Security Advisories",
+        "darknet_diaries": "Darknet Diaries",
+        "risky_business": "Risky Business",
+        "critical_thinking": "Critical Thinking (Bug Bounty Podcast)",
+        "bbre": "Bug Bounty Reports Explained",
+        "dfir_report": "The DFIR Report",
+        "ransomwatch": "RansomWatch",
     }
     return mapping.get(source, source.replace("_", " ").title())
 
@@ -160,6 +185,86 @@ def generate_shownotes(
                     f"*   **{clean_title}** — {pick}'s pick: "
                     f"follow up on this from {_get_source_attribution(src)}."
                 )
+        lines.append("")
+
+    # Learn It — practice resources, lab links, and a free reading list
+    # for anyone on the elite-hacker path.
+    learn_items: list[str] = []
+
+    # Surface lab/practice pointers whenever the episode touches relevant
+    # technique classes. The list is curated, not exhaustive.
+    technique_keywords = {
+        "xss": "PortSwigger Academy — Cross-site scripting labs (portswigger.net/web-security/cross-site-scripting)",
+        "cross-site scripting": "PortSwigger Academy — Cross-site scripting labs (portswigger.net/web-security/cross-site-scripting)",
+        "sql injection": "PortSwigger Academy — SQL injection labs (portswigger.net/web-security/sql-injection)",
+        "sqli": "PortSwigger Academy — SQL injection labs (portswigger.net/web-security/sql-injection)",
+        "ssrf": "PortSwigger Academy — Server-side request forgery labs (portswigger.net/web-security/ssrf)",
+        "csrf": "PortSwigger Academy — CSRF labs (portswigger.net/web-security/csrf)",
+        "xxe": "PortSwigger Academy — XML external entity labs (portswigger.net/web-security/xxe)",
+        "deserialization": "PortSwigger Academy — Insecure deserialization labs (portswigger.net/web-security/deserialization)",
+        "path traversal": "PortSwigger Academy — Path traversal labs (portswigger.net/web-security/path-traversal)",
+        "authentication": "PortSwigger Academy — Authentication labs (portswigger.net/web-security/authentication)",
+        "oauth": "PortSwigger Academy — OAuth labs (portswigger.net/web-security/oauth)",
+        "jwt": "PortSwigger Academy — JWT labs (portswigger.net/web-security/jwt)",
+        "file upload": "PortSwigger Academy — File upload labs (portswigger.net/web-security/file-upload)",
+        "command injection": "PortSwigger Academy — OS command injection labs (portswigger.net/web-security/os-command-injection)",
+        "os command": "PortSwigger Academy — OS command injection labs (portswigger.net/web-security/os-command-injection)",
+        "rce": "PortSwigger Academy — OS command injection labs (portswigger.net/web-security/os-command-injection)",
+        "ssti": "PortSwigger Research — Server-side template injection (portswigger.net/research/server-side-template-injection)",
+        "prototype pollution": "PortSwigger Academy — Prototype pollution labs",
+        "race condition": "PortSwigger Research — Smashing the state machine (portswigger.net/research/smashing-the-state-machine)",
+        "http request smuggling": "PortSwigger Research — HTTP request smuggling (portswigger.net/research/http-desync-attacks)",
+        "kernel": "Linux Kernel CVE archives + pwnable wargames",
+        "container escape": "DeepSurface / HackTricks container-escape checklist",
+        "kubernetes": "Kubernetes Goat (madhuakula/kubernetes-goat) + kube-hunter",
+    }
+
+    seen_links: set[str] = set()
+    blob = " ".join(
+        (it.get("title") or "") + " " + (it.get("summary") or "")
+        for it in raw_items
+    ).lower()
+    for kw, link in technique_keywords.items():
+        if link in seen_links:
+            continue
+        if kw in blob:
+            learn_items.append(f"*   {link}")
+            seen_links.add(link)
+
+    if any(it.get("source") in ("reddit_netsec", "reddit_bugbounty") for it in raw_items):
+        learn_items.append(
+            "*   Reddit r/netsec + r/bugbounty — fresh PoC drops, writeups, "
+            "and top-hunter methodology (reddit.com/r/netsec, reddit.com/r/bugbounty)"
+        )
+    if any(it.get("source", "").startswith("owasp") for it in raw_items):
+        learn_items.append(
+            "*   OWASP Top 10, ASVS, Cheat Sheet Series, WSTG — the de-facto curriculum "
+            "(owasp.org/www-project-top-ten, /www-project-application-security-verification-standard, "
+            "/www-project-cheat-sheets, /www-project-web-security-testing-guide)"
+        )
+    if any(it.get("source") == "exploit_db" for it in raw_items):
+        learn_items.append(
+            "*   Exploit-DB — public exploits, read the code to learn the technique "
+            "(exploit-db.com)"
+        )
+    if any(it.get("source") == "github_advisories" for it in raw_items):
+        learn_items.append(
+            "*   GitHub Security Advisories — supply-chain vulnerabilities across npm, "
+            "PyPI, Maven, Go, Rust (github.com/advisories)"
+        )
+    if any(it.get("source") in ("portswigger", "trail_of_bits", "project_zero") for it in raw_items):
+        learn_items.append(
+            "*   Researcher blogs to subscribe to: PortSwigger Research, "
+            "Trail of Bits blog, Google Project Zero — deep, technique-rich writeups"
+        )
+
+    if learn_items:
+        lines.append("## Learn It\n")
+        lines.append(
+            "Free practice environments and reading to turn today's news into "
+            "tomorrow's tradecraft.\n"
+        )
+        lines.extend(learn_items)
         lines.append("")
 
     # Citations

@@ -23,6 +23,8 @@ from .pipeline.sources import (
     cyberwire_daily,
     dark_reading,
     dfir_report,
+    exploit_db,
+    github_advisories,
     hackerone_hacktivity,
     hardware_hacking,
     infosecurity_magazine,
@@ -31,10 +33,12 @@ from .pipeline.sources import (
     microsoft_security,
     nitter_rss,
     nvd_recent,
+    owasp,
     portswigger_rss,
     project_zero,
     projectdiscovery_releases,
     ransomwatch,
+    reddit_netsec,
     the_hacker_news,
     threat_intel_news,
     trail_of_bits,
@@ -61,6 +65,11 @@ SYSTEM_PROMPT = """You are the senior researcher for a daily two-host bug-bounty
 podcast called "Daily Recon". Your job is to turn a list of raw items (titles,
 summaries, metadata) into a tight research brief for the writers.
 
+PODCAST GOAL: Help listeners become elite security researchers. The
+listener is not just hearing news — they are building a tradecraft
+foundation. Every brief item should answer: "what is the technique or
+weakness class here, and how would I practice finding it?"
+
 Hard rules:
 - Use ONLY the provided items. Do NOT invent CVEs, vendors, exploits, quotes,
   numbers, or names. If a fact is not in the source material, omit it.
@@ -84,6 +93,38 @@ Hard rules:
   2. Hardware Hacking (focus on firmware, side-channels, and physical bypasses)
    3. Conferences & Events (prioritise India & Asia — BSides, Nullcon, VULNCON, CIACON, etc.)
   4. Podcasts & Research (Darknet Diaries, Critical Thinking Bug Bounty, etc.)
+
+ELITE-HACKER FRAMING (for every CVE / exploit / technique discussed):
+- Identify the CWE class (e.g., CWE-78 OS Command Injection, CWE-89 SQL Injection,
+  CWE-79 XSS, CWE-22 Path Traversal, CWE-502 Deserialization, CWE-918 SSRF,
+  CWE-287 Auth Bypass). If the CWE is not explicit in the source material, OMIT
+  it rather than guess.
+- State the technique / weakness class in PLAIN ENGLISH in 1 sentence.
+- For every CVE, note the affected product + version range + exploitation
+  prerequisites (auth required? user interaction? network reachable?).
+- If the source item is a public exploit / PoC (Exploit-DB, GHSA PoC url, or
+  Reddit writeup), call this out — readers can study the code.
+- If the item is a researcher writeup (Reddit r/netsec, PortSwigger research,
+  Trail of Bits blog, Project Zero), surface the technique the researcher
+  used — that's the learning signal.
+- If the item is from OWASP, surface which project (Top 10, ASVS, Cheat
+  Sheet, WSTG) so listeners can deep-link to the relevant section.
+
+LEARNING RESOURCES — when the brief covers a technique, mention the right
+free practice environment:
+- Web vulnerabilities (XSS, SQLi, SSRF, IDOR, deserialization, auth bypass):
+  PortSwigger Web Security Academy (portswigger.net/web-security) — has free
+  labs covering every CWE class.
+- General bug bounty methodology: HackTheBox, TryHackMe, OWASP WebGoat,
+  DVWA, bWAPP.
+- Privilege escalation / post-exploitation: HackTheBox, PicoCTF, OverTheWire
+  wargames.
+- Reverse engineering / binary exploitation: CrackMes, pwnable, ROP Emporium.
+- Forensics / DFIR: CyberDefenders, Blue Team Labs Online.
+- Capture the flag in general: CTFtime.org for upcoming events + writeups.
+Only mention a resource when it's actually relevant to the technique in the
+brief — never stuff a generic reading list into every segment.
+
 - Skip items that are duplicates or too thin to discuss.
 - Keep the tone analytical, not breathless.
 - Mastodon items are Tier 3 leads — must be cross-checked against authoritative
@@ -141,6 +182,10 @@ def _gather_all() -> list[Item]:
         ("trail_of_bits", trail_of_bits.fetch),
         ("cert_in", cert_in.fetch),
         ("cyberwire_daily", cyberwire_daily.fetch),
+        ("reddit_netsec", reddit_netsec.fetch),
+        ("owasp", owasp.fetch),
+        ("exploit_db", exploit_db.fetch),
+        ("github_advisories", github_advisories.fetch),
     ]
     out: list[Item] = []
     for name, fn in fetchers:
