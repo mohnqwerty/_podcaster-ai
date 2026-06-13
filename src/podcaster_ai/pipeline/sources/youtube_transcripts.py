@@ -12,6 +12,7 @@ from typing import Final
 
 import feedparser
 import structlog
+from feedparser import FeedParserDict
 
 from ...config import get_settings
 from .base import Item, http_client, parse_dt
@@ -23,7 +24,7 @@ RSS_URL_FMT: Final[str] = "https://www.youtube.com/feeds/videos.xml?channel_id={
 MAX_TRANSCRIPT_CHARS: Final[int] = 6000
 
 
-def _channel_videos(client, channel_id: str) -> list[dict]:
+def _channel_videos(client, channel_id: str) -> list[FeedParserDict]:
     """Return parsed entries for a channel's public RSS feed."""
     try:
         resp = client.get(RSS_URL_FMT.format(cid=channel_id))

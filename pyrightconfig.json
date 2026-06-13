@@ -1,6 +1,7 @@
 {
-  "include": ["src"],
-  "exclude": ["out", ".venv", "venv", "data", "tests", "**/__pycache__"],
+  "include": ["src/podcaster_ai", "src/tests"],
+  "exclude": ["out", ".venv", "venv", "data", "tests", "**/__pycache__", "src/podcaster_ai/web"],
+  "stubPath": "stubs",
   "reportMissingImports": "error",
   "reportMissingTypeStubs": "warning",
   "pythonVersion": "3.11",
