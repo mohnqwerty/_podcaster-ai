@@ -15,8 +15,13 @@ log = structlog.get_logger(__name__)
 
 
 def _clean_text(text: str, max_len: int = 600) -> str:
-    """Strip excessive whitespace and truncate."""
-    cleaned = re.sub(r"\s+", " ", text).strip()
+    """Strip markdown noise (### Summary etc), excessive whitespace, and truncate."""
+    cleaned = re.sub(r"#{1,6}\s*Summary\s*", "", text, flags=re.IGNORECASE)
+    cleaned = re.sub(r"#{1,6}\s*Description\s*", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"#{1,6}\s*Details\s*", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"<br\s*/?>", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"<[^>]+>", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
     if len(cleaned) > max_len:
         cleaned = cleaned[:max_len].rsplit(" ", 1)[0] + "…"
     return cleaned
@@ -117,7 +122,9 @@ def generate_shownotes(
         seg_items = seg.get("items") or []
         if seg_items:
             first = seg_items[0].get("headline") or ""
-            summary_parts.append(f"The hosts also cover {first.lower()}" if first else "")
+            if first:
+                trimmed = first if len(first) <= 120 else first[:117] + "…"
+                summary_parts.append(f"The hosts also cover {trimmed}")
     summary = " ".join(p for p in summary_parts if p)
     if not summary:
         summary = "Today's episode covers the latest in bug bounty and vulnerability research."
@@ -140,11 +147,12 @@ def generate_shownotes(
             if angle:
                 para_parts.append(angle)
 
-            # Build item descriptions with citations
+            # Build item descriptions with citations + hyperlinks
             for item in seg.get("items") or []:
                 headline = item.get("headline") or ""
                 key_facts = item.get("key_facts") or []
-                key_point = _clean_text(key_facts[0], 250) if key_facts else ""
+                key_point_raw = key_facts[0] if key_facts else ""
+                key_point = _clean_text(key_point_raw, 280) if key_point_raw else ""
 
                 # Find source citation
                 item_citations: set[int] = set()
@@ -155,35 +163,193 @@ def generate_shownotes(
                             item_citations.add(int(cit_map[src]))
                 cit_str = " ".join(f"[{n}]" for n in sorted(item_citations))
 
-                item_text = headline
+                # Resolve a clickable URL: prefer source_urls from the segment
+                # item, fall back to raw_items by title match.
+                item_url: str = ""
+                for url in item.get("source_urls") or []:
+                    if url:
+                        item_url = url
+                        break
+                if not item_url:
+                    for src_item in raw_items:
+                        if src_item.get("title", "").strip() == headline.strip():
+                            cand = src_item.get("url") or ""
+                            if cand:
+                                item_url = cand
+                                break
+
+                if item_url:
+                    linked_headline = f"[{headline}]({item_url})"
+                else:
+                    linked_headline = headline
+
                 if key_point:
-                    item_text += f", {key_point}"
+                    if item_url:
+                        item_text = f"{linked_headline} — {key_point}"
+                    else:
+                        item_text = f"{linked_headline}, {key_point}"
+                else:
+                    item_text = linked_headline
                 if cit_str:
                     item_text += f" {cit_str}"
                 para_parts.append(item_text)
 
             if para_parts:
-                lines.append(". ".join(para_parts) + ".\n")
+                para = " ".join(p.rstrip(".") for p in para_parts).rstrip(".") + ".\n"
+                lines.append(para)
 
-    # References and Rabbit Holes
+    # References and Rabbit Holes — diverse picks from across all sources,
+    # each with a learning hook, NOT just the top-of-rank CVEs.
     if raw_items:
         lines.append("## References and Rabbit Holes\n")
-        picks = ["Arjun", "Maya", "Arjun", "Maya"]
-        for i, item in enumerate(raw_items[:8]):
+        lines.append(
+            "Curated picks from the day's sources, with what to look for. "
+            "Not just headlines — these are the rabbit holes worth going down.\n"
+        )
+
+        # Priority order for picking references — learning-rich sources first,
+        # so the section actually teaches instead of just listing CVE IDs.
+        reference_priority = [
+            "portswigger",
+            "trail_of_bits",
+            "project_zero",
+            "owasp",
+            "owasp_blog",
+            "owasp_top10",
+            "owasp_cheatsheets",
+            "owasp_asvs",
+            "owasp_wstg",
+            "exploit_db",
+            "reddit_netsec",
+            "reddit_bugbounty",
+            "github_advisories",
+            "hackerone",
+            "projectdiscovery",
+            "darknet_diaries",
+            "critical_thinking",
+            "bbre",
+            "risky_business",
+            "krebs",
+            "the_hacker_news",
+            "dark_reading",
+            "infosecurity_magazine",
+            "threat_intel_news",
+            "cyberwire_daily",
+            "microsoft_security",
+            "cisco_talos",
+            "cert_in",
+            "dfir_report",
+            "ransomwatch",
+            "ai_security",
+            "hardware_hacking",
+            "nvd",
+            "cisa_kev",
+            "vendor_rss",
+            "mastodon",
+            "nitter",
+            "conferences",
+            "youtube",
+        ]
+
+        seen_keys: set[str] = set()
+        seen_titles: set[str] = set()
+        picked: list[dict[str, Any]] = []
+
+        # Bucket items by source for fair picking
+        by_source: dict[str, list[dict[str, Any]]] = {}
+        for it in raw_items:
+            if not isinstance(it, dict):
+                continue
+            src = (it.get("source") or "").strip()
+            if not src:
+                continue
+            by_source.setdefault(src, []).append(it)
+
+        for src in reference_priority:
+            if len(picked) >= 12:
+                break
+            for it in by_source.get(src, []):
+                if len(picked) >= 12:
+                    break
+                title = (it.get("title") or "").strip()
+                if not title or title in seen_titles:
+                    continue
+                seen_titles.add(title)
+                picked.append(it)
+                break  # one item per source
+
+        # If we still have room, top up with remaining items (any source)
+        if len(picked) < 12:
+            for it in raw_items:
+                if len(picked) >= 12:
+                    break
+                title = (it.get("title") or "").strip()
+                if not title or title in seen_titles:
+                    continue
+                seen_titles.add(title)
+                picked.append(it)
+
+        # Per-source learning hooks
+        learning_hooks = {
+            "portswigger": "Read the technique walkthrough — these writeups usually include a working PoC.",
+            "trail_of_bits": "Deep, method-rich blog posts — read for the reasoning, not just the bug.",
+            "project_zero": "Top-tier vulnerability research with full technical timelines and root-cause analysis.",
+            "owasp": "Curriculum content — bookmark and reference while learning each topic.",
+            "owasp_blog": "Project updates from the OWASP community — often a new lab or tool.",
+            "owasp_top10": "The Top 10 — make sure you can find and exploit every category here.",
+            "owasp_cheatsheets": "Cheat Sheet Series — go-to reference for each vulnerability class.",
+            "owasp_asvs": "Application Security Verification Standard — the checklist for secure apps.",
+            "owasp_wstg": "Web Security Testing Guide — read the section for any bug class you're hunting.",
+            "exploit_db": "Public exploit code — read it to learn how the technique is actually weaponized.",
+            "reddit_netsec": "Community PoC drops and writeups — freshest exploitation signal.",
+            "reddit_bugbounty": "Top-hunter methodology and recent finds from r/bugbounty.",
+            "github_advisories": "Supply-chain vulnerability with affected package and version range.",
+            "hackerone": "Disclosed bug report — real-world findings with full attack narrative.",
+            "projectdiscovery": "New tool or nuclei template — add to your recon/fuzzing pipeline.",
+            "darknet_diaries": "Story-driven episode — context and tradecraft behind the headlines.",
+            "critical_thinking": "Bug bounty methodology podcast — top hunters' workflows.",
+            "bbre": "Reads disclosed bug reports — listen for the attacker's process.",
+            "risky_business": "Industry commentary and geopolitical context.",
+            "krebs": "Investigative reporting on cybercrime and breaches.",
+            "the_hacker_news": "Breaking news coverage with technical detail.",
+            "dark_reading": "Enterprise and vulnerability coverage with industry context.",
+            "infosecurity_magazine": "Long-form analysis and feature articles.",
+            "threat_intel_news": "BleedingComputer / The Hacker News / SecurityWeek daily threat intel.",
+            "cyberwire_daily": "Daily 15-min briefing for the cybersecurity industry.",
+            "microsoft_security": "Microsoft vulnerability and threat research.",
+            "cisco_talos": "Threat intel from one of the largest research teams in the industry.",
+            "cert_in": "India CERT advisory — vendor + affected versions + mitigations.",
+            "dfir_report": "Deep incident analysis — read for the kill-chain reconstruction.",
+            "ransomwatch": "Active ransomware victim tracking — who's being hit right now.",
+            "ai_security": "AI/LLM security news from VentureBeat.",
+            "hardware_hacking": "Hackaday security hacks — firmware, side-channels, physical attacks.",
+            "nvd": "CVE entry — check the affected versions and references for the full picture.",
+            "cisa_kev": "Known-exploited vulnerability — patch this if it affects you.",
+            "vendor_rss": "Vendor advisory — check affected versions and patch timeline.",
+            "mastodon": "Community post from the fediverse — cross-check before citing as fact.",
+            "nitter": "X / Twitter post via Nitter — cross-check before citing as fact.",
+            "conferences": "Upcoming security conference — submit a talk or attend.",
+            "youtube": "Video content — transcripts available for summarization.",
+        }
+
+        picks = ["Arjun", "Maya"]
+        for i, item in enumerate(picked):
             title = item.get("title") or "Untitled"
             url = item.get("url") or ""
             src = item.get("source") or ""
-            clean_title = _clean_text(title, 100)
+            clean_title = _clean_text(title, 120)
+            attribution = _get_source_attribution(src)
+            hook = learning_hooks.get(src, "Read for context and follow-up research.")
             pick = picks[i % len(picks)]
             if url:
                 lines.append(
-                    f"*   [{clean_title}]({url}) — {pick}'s pick: "
-                    f"dig into the details from {_get_source_attribution(src)}."
+                    f"*   [{clean_title}]({url}) — {pick}'s pick via {attribution}. "
+                    f"**Why:** {hook}"
                 )
             else:
                 lines.append(
-                    f"*   **{clean_title}** — {pick}'s pick: "
-                    f"follow up on this from {_get_source_attribution(src)}."
+                    f"*   **{clean_title}** — {pick}'s pick via {attribution}. "
+                    f"**Why:** {hook}"
                 )
         lines.append("")
 

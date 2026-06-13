@@ -72,8 +72,8 @@ class Settings(BaseSettings):
     youtube_lookback_days: int = 14
     nvd_min_cvss: float = 7.0
     nvd_lookback_hours: int = 72
-    max_items_per_source: int = 12
-    max_total_items: int = 60
+    max_items_per_source: int = 20
+    max_total_items: int = 120
 
     # ---------- Mastodon ----------
     mastodon_access_token: Optional[str] = None

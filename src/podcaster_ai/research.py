@@ -51,6 +51,123 @@ log = structlog.get_logger(__name__)
 
 _URL_RE = re.compile(r"https?://\S+")
 _CVSS_VECTOR_RE = re.compile(r"CVSS:\d+\.\d+/\S+")
+_CWE_RE = re.compile(r"CWE-\d+", re.IGNORECASE)
+
+
+_SOURCE_FAMILIES: list[tuple[str, set[str], str]] = [
+    (
+        "Critical CVEs and Advisories",
+        {
+            "nvd", "cisa_kev", "vendor_rss", "github_advisories",
+            "microsoft_security", "cisco_talos", "cert_in",
+        },
+        "Newly disclosed or actively-exploited vulnerabilities from authoritative databases and vendor advisories.",
+    ),
+    (
+        "Web and AI Security Research",
+        {
+            "portswigger", "owasp", "owasp_blog", "owasp_top10", "owasp_asvs",
+            "owasp_cheatsheets", "owasp_wstg", "ai_security", "project_zero",
+        },
+        "Deep technical research on web vulnerabilities, AI/LLM security, and exploitation techniques.",
+    ),
+    (
+        "Exploits, PoCs, and Writeups",
+        {
+            "exploit_db", "reddit_netsec", "reddit_bugbounty",
+            "trail_of_bits",
+        },
+        "Public exploits, proof-of-concept code, and researcher writeups to read and learn from.",
+    ),
+    (
+        "Threat Intelligence and Incidents",
+        {
+            "krebs", "the_hacker_news", "dark_reading", "infosecurity_magazine",
+            "threat_intel_news", "cyberwire_daily", "dfir_report", "ransomwatch",
+            "mastodon", "nitter", "hackerone",
+        },
+        "Active threat actor activity, breach analysis, and industry context.",
+    ),
+    (
+        "Tools, Conferences, and Community",
+        {
+            "projectdiscovery", "conferences", "darknet_diaries",
+            "risky_business", "critical_thinking", "bbre", "youtube",
+            "hardware_hacking",
+        },
+        "New offensive-security tools, upcoming conferences, podcast episodes, and community knowledge.",
+    ),
+]
+
+
+def _family_for(source: str) -> tuple[str, str] | None:
+    """Return (family_name, family_angle) for a source key, or None."""
+    for name, members, angle in _SOURCE_FAMILIES:
+        if source in members:
+            return (name, angle)
+    return None
+
+
+def _categorize_fallback_brief(short_list: list[Item]) -> list[dict[str, Any]]:
+    """Group items into categorized segments when the LLM brief is unavailable.
+
+    Each segment groups items by source family, with the family description as
+    the angle. Items within a segment keep their source URL so the shownotes
+    stage can hyperlink each headline.
+    """
+    buckets: dict[str, dict[str, Any]] = {}
+    orphan_items: list[Item] = []
+    for it in short_list:
+        fam = _family_for(it.source)
+        if fam is None:
+            orphan_items.append(it)
+            continue
+        name, angle = fam
+        bucket = buckets.setdefault(name, {"name": name, "angle": angle, "items": []})
+        key_facts: list[str] = []
+        if it.summary:
+            cleaned = re.sub(r"###\s*Summary\s*", "", it.summary, flags=re.IGNORECASE)
+            cleaned = re.sub(r"##\s*Summary\s*", "", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"\s+", " ", cleaned).strip()
+            if cleaned:
+                key_facts.append(cleaned[:400])
+        bucket["items"].append(
+            {
+                "headline": it.title,
+                "key_facts": key_facts,
+                "source_urls": [it.url] if it.url else [],
+                "_source": it.source,
+            }
+        )
+
+    segments: list[dict[str, Any]] = []
+    for name, _, _ in _SOURCE_FAMILIES:
+        bucket = buckets.get(name)
+        if not bucket or not bucket["items"]:
+            continue
+        bucket["items"].sort(key=lambda d: d.get("headline", ""))
+        segments.append(bucket)
+
+    if orphan_items:
+        segments.append(
+            {
+                "name": "Other Coverage",
+                "angle": "Additional items from the day's sources.",
+                "items": [
+                    {
+                        "headline": it.title,
+                        "key_facts": [
+                            re.sub(r"\s+", " ", it.summary).strip()[:400]
+                        ] if it.summary else [],
+                        "source_urls": [it.url] if it.url else [],
+                        "_source": it.source,
+                    }
+                    for it in orphan_items
+                ],
+            }
+        )
+
+    return segments
 
 
 def _strip_urls(text: str) -> str:
@@ -352,25 +469,12 @@ def build_research_brief() -> dict[str, Any]:
         brief = _safe_json_parse(raw)
     except Exception as exc:  # noqa: BLE001
         log.warning("research.llm_failed", error=str(exc))
-        # Last-resort fallback: a degenerate brief built directly from items
-        # so downstream stages still produce *something* for inspection.
+        # Last-resort fallback: a categorised brief built directly from items
+        # so downstream stages still produce a structured, linkable episode.
         brief = {
             "title": "Daily Recon — fallback brief",
-            "tagline": "LLM brief unavailable; using raw items.",
-            "segments": [
-                {
-                    "name": "Raw highlights",
-                    "angle": "Direct from sources, no synthesis.",
-                    "items": [
-                        {
-                            "headline": it.title,
-                            "key_facts": [it.summary[:280]],
-                            "source_urls": [it.url] if it.url else [],
-                        }
-                        for it in short_list[:10]
-                    ],
-                }
-            ],
+            "tagline": "LLM brief unavailable; here's the day's coverage, grouped by source family.",
+            "segments": _categorize_fallback_brief(short_list),
             "closing_notes": "Fallback brief — verify everything yourself.",
         }
 
