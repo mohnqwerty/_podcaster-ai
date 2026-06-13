@@ -37,7 +37,7 @@ async def _edge_tts_render(speaker: str, voice: str, text: str, rate: str = "+0%
     chunks: list[bytes] = []
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":
-            chunks.append(chunk["data"])
+            chunks.append(chunk.get("data") or b"")
     if not chunks:
         raise TTSError(f"edge-tts returned no audio for speaker={speaker}, voice={voice}")
     return b"".join(chunks)

@@ -100,11 +100,10 @@ def generate_shownotes(
     lines.append(f"{summary}\n")
 
     # News and Analysis — segments as paragraphs with citation markers
+    raw_items = brief.get("_items") or []
+    cit_map = _source_citation_map(raw_items)
     if segments:
         lines.append("## News and Analysis\n")
-        # Build citation map from raw items
-        raw_items = brief.get("_items") or []
-        cit_map = _source_citation_map(raw_items)
 
         for seg in segments:
             seg_name = seg.get("name") or "Highlights"
@@ -200,8 +199,8 @@ def generate_pdf(
     date_str = episode_date.strftime("%B %d, %Y")
     pdf = FPDF()
     pdf.add_page()
-    pdf.add_font("DejaVu", "", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", uni=True)
-    pdf.add_font("DejaVu", "B", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", uni=True)
+    pdf.add_font("DejaVu", "", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
+    pdf.add_font("DejaVu", "B", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
     pdf.set_auto_page_break(auto=True, margin=20)
 
     # Title
