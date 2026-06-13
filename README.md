@@ -487,6 +487,41 @@ _podcaster-ai/
 
 ---
 
+## Development
+
+### IDE / Editor LSP (opencode, VS Code, Neovim, etc.)
+
+Two complementary language servers are configured via `.opencode/opencode.json`:
+
+- **pyright** — fast type checking (diagnostics, hover types, go-to-definition).
+- **pylsp** (python-lsp-server with `rope`, `ruff`, `pylint`, `mypy` plugins) — refactor tools (rename, extract), auto-format on save, additional linting.
+
+Pyright scope is pinned via `pyrightconfig.json` (only `src/`, excludes `out/`, `data/`, `tests/`, `.venv/`).
+
+To install the dev toolchain:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
+```
+
+Restart opencode in the workspace after installing — both servers will start automatically on first edit of a `.py` file.
+
+Quick smoke-check from the CLI:
+
+```bash
+pyright src/podcaster_ai
+ruff check src/podcaster_ai
+ruff format --check src/podcaster_ai
+```
+
+### Code style
+
+`pyproject.toml` carries the shared `[tool.ruff]` config (line length 100, double quotes, Python 3.11 target). `pylsp` invokes `ruff` as its formatter by default, so saving a file re-runs `ruff format` and applies `ruff check --fix` for safe lint fixes.
+
+---
+
 ## License
 
 MIT. See `LICENSE` for details.

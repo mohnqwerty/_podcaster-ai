@@ -29,3 +29,18 @@ where = ["src"]
 
 [tool.setuptools.package-dir]
 "" = "src"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["out", "data", ".venv", "venv"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = [
+    "E501",  # line-too-long (handled by formatter)
+]
