@@ -565,10 +565,14 @@ def generate_pdf(
             pdf.set_font("DejaVu", "B", 10)
             pdf.cell(0, 6, seg_name, new_x="LMARGIN", new_y="NEXT")
 
-            para_parts: list[str] = []
             angle = seg.get("angle") or ""
             if angle:
-                para_parts.append(angle)
+                pdf.set_font("DejaVu", "", 8)
+                pdf.set_text_color(80, 80, 80)
+                pdf.multi_cell(0, 4, angle, new_x="LMARGIN", new_y="NEXT")
+                pdf.set_text_color(0, 0, 0)
+                pdf.ln(1)
+
             for item in seg.get("items") or []:
                 headline = item.get("headline") or ""
                 key_facts = item.get("key_facts") or []
@@ -582,17 +586,47 @@ def generate_pdf(
                             item_citations.add(int(cit_map[src]))
                 cit_str = " ".join(f"[{n}]" for n in sorted(item_citations))
 
-                item_text = headline
-                if key_point:
-                    item_text += f", {key_point}"
-                if cit_str:
-                    item_text += f" {cit_str}"
-                para_parts.append(item_text)
+                # Build the clickable link text from source_urls / raw_items.
+                item_url: str = ""
+                for url in item.get("source_urls") or []:
+                    if url:
+                        item_url = url
+                        break
+                if not item_url:
+                    for src_item in raw_items:
+                        if src_item.get("title", "").strip() == headline.strip():
+                            cand = src_item.get("url") or ""
+                            if cand:
+                                item_url = cand
+                                break
 
-            if para_parts:
-                para = ". ".join(para_parts) + "."
+                # CWE suffix (e.g. " · CWE-78 (OS Command Injection)")
+                cwe_str = _format_cwe(item.get("cwe"))
+
+                # Build the headline label that will become the link.
+                link_label = headline
+                if cwe_str:
+                    link_label = f"{headline} \u00b7 {cwe_str}"
+                if len(link_label) > 220:
+                    link_label = link_label[:217] + "\u2026"
+
+                # Render: bullet + linked headline in blue, then plain tail.
                 pdf.set_font("DejaVu", "", 8)
-                pdf.multi_cell(0, 4, para, new_x="LMARGIN", new_y="NEXT")
+                pdf.write(4.5, "\u2022  ")
+                if item_url:
+                    pdf.set_text_color(0, 0, 200)
+                    pdf.set_font("DejaVu", "B", 8)
+                    pdf.write(4.5, link_label, link=item_url)
+                    pdf.set_text_color(0, 0, 0)
+                    pdf.set_font("DejaVu", "", 8)
+                else:
+                    pdf.set_font("DejaVu", "B", 8)
+                    pdf.write(4.5, link_label)
+                if key_point:
+                    pdf.write(4.5, f" \u2014 {key_point}")
+                if cit_str:
+                    pdf.write(4.5, f"  {cit_str}")
+                pdf.ln(5)
             pdf.ln(2)
 
     # References and Rabbit Holes
