@@ -9,6 +9,45 @@ from typing import Any
 
 import structlog
 
+# Top-25 MITRE CWE names used to render CWE tags inline with CVEs.
+# If a CVE's CWE isn't here, we just render the id (e.g. "CWE-1395") with
+# no parenthetical name, rather than fabricating one.
+_CWE_NAMES: dict[str, str] = {
+    "CWE-22": "Path Traversal",
+    "CWE-78": "OS Command Injection",
+    "CWE-79": "Cross-site Scripting (XSS)",
+    "CWE-89": "SQL Injection",
+    "CWE-94": "Code Injection",
+    "CWE-119": "Buffer Overflow",
+    "CWE-125": "Out-of-bounds Read",
+    "CWE-190": "Integer Overflow",
+    "CWE-200": "Information Exposure",
+    "CWE-269": "Improper Privilege Management",
+    "CWE-287": "Improper Authentication",
+    "CWE-295": "Improper Certificate Validation",
+    "CWE-319": "Cleartext Transmission",
+    "CWE-352": "CSRF",
+    "CWE-400": "Uncontrolled Resource Consumption",
+    "CWE-416": "Use After Free",
+    "CWE-434": "Unrestricted File Upload",
+    "CWE-476": "NULL Pointer Dereference",
+    "CWE-502": "Deserialization",
+    "CWE-611": "XXE",
+    "CWE-787": "Out-of-bounds Write",
+    "CWE-918": "SSRF",
+    "CWE-1021": "Clickjacking",
+    "CWE-1333": "Regex DoS",
+    "CWE-1395": "Dependency on Vulnerable Component",
+}
+
+
+def _format_cwe(cwe: str | None) -> str:
+    """Render a CWE id as 'CWE-78 (OS Command Injection)' or just 'CWE-1395'."""
+    if not cwe:
+        return ""
+    name = _CWE_NAMES.get(cwe.upper())
+    return f"{cwe} ({name})" if name else cwe
+
 from .script import ScriptResult
 
 log = structlog.get_logger(__name__)
@@ -183,6 +222,15 @@ def generate_shownotes(
                 else:
                     linked_headline = headline
 
+                # CWE inline tag: if the brief item carries a CWE, append
+                # " · CWE-78 (OS Command Injection)" to the display title
+                # (the markdown link, not the raw headline).
+                cwe_str = _format_cwe(item.get("cwe"))
+                if cwe_str and item_url:
+                    linked_headline = f"{linked_headline} · {cwe_str}"
+                elif cwe_str:
+                    linked_headline = f"{linked_headline} · {cwe_str}"
+
                 if key_point:
                     if item_url:
                         item_text = f"{linked_headline} — {key_point}"
@@ -337,7 +385,11 @@ def generate_shownotes(
             title = item.get("title") or "Untitled"
             url = item.get("url") or ""
             src = item.get("source") or ""
-            clean_title = _clean_text(title, 120)
+            extra = item.get("extra") or {}
+            clean_title = _clean_text(title, 110)
+            cwe_suffix = _format_cwe(extra.get("cwe"))
+            if cwe_suffix:
+                clean_title = f"{clean_title} · {cwe_suffix}"
             attribution = _get_source_attribution(src)
             hook = learning_hooks.get(src, "Read for context and follow-up research.")
             pick = picks[i % len(picks)]

@@ -29,7 +29,9 @@ ABSOLUTE RULES (never violate):
 5. NEVER invent conference talks, Darknet Diaries episodes, or podcast episodes.
 6. If the brief has no DEF CON / Black Hat talks, do NOT mention any.
 
-DIALOGUE LENGTH: Write exactly 50-70 dialogue lines (MAYA/ARJUN turns). The episode must be 8-12 minutes when spoken. This is non-negotiable.
+DIALOGUE LENGTH: Write 80-110 dialogue lines (MAYA/ARJUN turns). The episode must be 10-15 minutes when spoken. This is non-negotiable.
+
+MANDATORY COVERAGE: Cover EVERY segment from the brief. Do NOT skip a segment even if a higher-CVSS one looks more interesting. If the brief has 6 segments, write about all 6. If 8, write about all 8. The "References & Rabbit Holes" segment MUST include at least one item from a learning-rich source (PortSwigger, Exploit-DB, Reddit r/netsec, OWASP, Trail of Bits, Project Zero, GHSA, or a podcast). If the brief's References list has no such item, say so honestly and pick the highest-signal CVE writeup instead.
 
 Dialogue Mechanics:
 - Turns are 2-4 sentences each. Include technical depth: exploit techniques, attack vectors, affected versions, mitigations.

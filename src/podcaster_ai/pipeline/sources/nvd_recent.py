@@ -28,6 +28,32 @@ def _extract_cvss(metrics: dict[str, Any]) -> tuple[float | None, str | None]:
     return None, None
 
 
+def _extract_cwe(weaknesses: list[dict[str, Any]]) -> str | None:
+    """Return the primary CWE id (e.g. "CWE-78") from the NVD weaknesses block.
+
+    NVD lists weaknesses as:
+        {"source": "...", "type": "Primary"|"Secondary", "description": [{"lang":"en","value":"CWE-78"}]}
+    Prefer Primary; fall back to the first English description.
+    """
+    primary: str | None = None
+    fallback: str | None = None
+    for w in weaknesses or []:
+        for d in w.get("description") or []:
+            if d.get("lang") != "en":
+                continue
+            value = (d.get("value") or "").strip()
+            if not value.startswith("CWE-"):
+                continue
+            if w.get("type") == "Primary":
+                primary = value
+                break
+            if fallback is None:
+                fallback = value
+        if primary:
+            return primary
+    return fallback
+
+
 def _english_description(descriptions: list[dict[str, Any]]) -> str:
     for d in descriptions or []:
         if d.get("lang") == "en":
@@ -72,9 +98,19 @@ def fetch() -> list[Item]:
         if score is None or score < min_cvss:
             continue
 
+        cwe = _extract_cwe(cve.get("weaknesses") or [])
+
         description = _english_description(cve.get("descriptions") or [])
         if len(description) > 500:
             description = description[:500].rsplit(" ", 1)[0] + "…"
+
+        extra: dict[str, Any] = {
+            "cve_id": cve_id,
+            "cvss": score,
+            "vector": vector,
+        }
+        if cwe:
+            extra["cwe"] = cwe
 
         items.append(
             Item(
@@ -83,11 +119,7 @@ def fetch() -> list[Item]:
                 summary=description or f"{cve_id} — see NVD for details.",
                 source=SOURCE,
                 published_at=parse_dt(cve.get("published")),
-                extra={
-                    "cve_id": cve_id,
-                    "cvss": score,
-                    "vector": vector,
-                },
+                extra=extra,
             )
         )
 

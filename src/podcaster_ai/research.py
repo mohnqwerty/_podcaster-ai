@@ -131,14 +131,16 @@ def _categorize_fallback_brief(short_list: list[Item]) -> list[dict[str, Any]]:
             cleaned = re.sub(r"\s+", " ", cleaned).strip()
             if cleaned:
                 key_facts.append(cleaned[:400])
-        bucket["items"].append(
-            {
-                "headline": it.title,
-                "key_facts": key_facts,
-                "source_urls": [it.url] if it.url else [],
-                "_source": it.source,
-            }
-        )
+        cwe = (it.extra or {}).get("cwe") if it.extra else None
+        item_dict: dict[str, Any] = {
+            "headline": it.title,
+            "key_facts": key_facts,
+            "source_urls": [it.url] if it.url else [],
+            "_source": it.source,
+        }
+        if cwe:
+            item_dict["cwe"] = cwe
+        bucket["items"].append(item_dict)
 
     segments: list[dict[str, Any]] = []
     for name, _, _ in _SOURCE_FAMILIES:
@@ -161,6 +163,11 @@ def _categorize_fallback_brief(short_list: list[Item]) -> list[dict[str, Any]]:
                         ] if it.summary else [],
                         "source_urls": [it.url] if it.url else [],
                         "_source": it.source,
+                        **(
+                            {"cwe": (it.extra or {}).get("cwe")}
+                            if (it.extra or {}).get("cwe")
+                            else {}
+                        ),
                     }
                     for it in orphan_items
                 ],
@@ -210,6 +217,35 @@ Hard rules:
   2. Hardware Hacking (focus on firmware, side-channels, and physical bypasses)
    3. Conferences & Events (prioritise India & Asia — BSides, Nullcon, VULNCON, CIACON, etc.)
   4. Podcasts & Research (Darknet Diaries, Critical Thinking Bug Bounty, etc.)
+
+SOURCE-FAMILY COVERAGE: A brief MUST contain at least one segment per
+source family that returned 3+ items. The five families are:
+- "Critical CVEs and Advisories" (NVD, CISA KEV, GitHub Advisories,
+  Microsoft Security, Cisco Talos, CERT-In, vendor RSS)
+- "Web and AI Security Research" (PortSwigger, OWASP, AI security,
+  Project Zero)
+- "Exploits, PoCs, and Writeups" (Exploit-DB, Reddit r/netsec,
+  Reddit r/bugbounty, Trail of Bits)
+- "Threat Intelligence and Incidents" (Krebs, The Hacker News,
+  Dark Reading, Infosecurity Magazine, BleepingComputer, CyberWire
+  Daily, DFIR Report, RansomWatch, Mastodon, Nitter, HackerOne)
+- "Tools, Conferences, and Community" (ProjectDiscovery, conferences,
+  Darknet Diaries, Risky Business, Critical Thinking, BBRE, YouTube,
+  Hardware Hacking)
+If a family returned <3 items, OMIT it (do not invent a placeholder).
+If a family returned 3+ items, you MUST include at least one segment
+that covers them — even if you have to write 8 segments instead of 5.
+
+CWE CLASS EXTRACTION: For every CVE discussed, include the CWE class
+in the headline when the source material makes it identifiable. The
+preferred format is:
+
+    "CVE-2026-10520 — OS Command Injection in Ivanti Sentry (CWE-78, CVSS 10.0)"
+
+If the CWE is not explicit in the source (and the source item's
+extra.cwe field is empty), OMIT it rather than guess. NEVER make up
+a CWE number. Set the "cwe" field on the item to the CWE id string
+(e.g. "CWE-78") only when you are confident.
 
 ELITE-HACKER FRAMING (for every CVE / exploit / technique discussed):
 - Identify the CWE class (e.g., CWE-78 OS Command Injection, CWE-89 SQL Injection,
@@ -261,7 +297,8 @@ Output STRICT JSON matching this shape:
         {
           "headline": "string",
           "key_facts": ["string", ...],
-          "source_urls": ["https://..."]
+          "source_urls": ["https://..."],
+          "cwe": "CWE-NN"   // optional, only when source material confirms it
         }
       ]
     }
@@ -404,6 +441,15 @@ def _items_to_prompt(items: list[Item]) -> str:
                 sanitised[k] = v
         return sanitised
 
+    def _serialise_extra(extra: dict[str, object]) -> dict[str, object]:
+        if extra is None:
+            return {}
+        out: dict[str, object] = {}
+        for k, v in extra.items():
+            if k in ("cvss", "cve_id", "cwe"):
+                out[k] = v
+        return out
+
     serialised = [
         {
             "title": _strip_cvss_vector(it.title[:150]),
@@ -413,7 +459,7 @@ def _items_to_prompt(items: list[Item]) -> str:
             "published_at": it.published_at.astimezone(timezone.utc).isoformat()
             if it.published_at
             else None,
-            "extra": _sanitise_extra(it.extra or {}),
+            "extra": _serialise_extra(it.extra or {}),
         }
         for it in items
     ]
