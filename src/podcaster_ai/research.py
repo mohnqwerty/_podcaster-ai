@@ -32,6 +32,7 @@ from .pipeline.sources import (
     github_advisories,
     hacker_news,
     hackerone_hacktivity,
+    hak5,
     hardware_hacking,
     infosecurity_magazine,
     krebs_on_security,
@@ -228,35 +229,44 @@ Hard rules:
    3. Conferences & Events (prioritise India & Asia — BSides, Nullcon, VULNCON, CIACON, etc.)
   4. Podcasts & Research (Darknet Diaries, Critical Thinking Bug Bounty, etc.)
 
-SOURCE-FAMILY COVERAGE: A brief MUST contain at least one segment per
-source family that returned 3+ items. The five families are:
-- "Critical CVEs and Advisories" (NVD, CISA KEV, GitHub Advisories,
-  Microsoft Security, Cisco Talos, CERT-In, vendor RSS)
-- "Web and AI Security Research" (PortSwigger, OWASP, AI security,
-  Project Zero)
-- "Exploits, PoCs, and Writeups" (Exploit-DB, Reddit r/netsec,
-  Reddit r/bugbounty, Trail of Bits)
-- "Threat Intelligence and Incidents" (Krebs, The Hacker News,
-  Dark Reading, Infosecurity Magazine, BleepingComputer, CyberWire
-  Daily, DFIR Report, RansomWatch, Mastodon, Nitter, HackerOne)
-- "Tools, Conferences, and Community" (ProjectDiscovery, conferences,
-  Darknet Diaries, Risky Business, Critical Thinking, BBRE, YouTube,
-  Hardware Hacking)
-If a family returned <3 items, OMIT it (do not invent a placeholder).
-If a family returned 3+ items, you MUST include at least one segment
-that covers them — even if you have to write 8 segments instead of 5.
+SEGMENT STRUCTURE — VERBATIM NAMES (NON-NEGOTIABLE):
+The brief MUST contain segments with these EXACT names, in this order.
+The listener expects a stable structure every day. DO NOT collapse,
+merge, or rename these. If a family returned 0 items, OMIT the segment
+entirely (do not invent a placeholder).
 
-CONCEPT OF THE DAY: The brief contains exactly one item with
-source="concept_of_the_day". This MUST become its own segment named
-"Concept of the Day" (or very similar — "Builder's Corner", "Concept
-Explainer"). Do NOT fold it into AI Security, Web Security, or any
-other segment. The listener expects a dedicated slot for the concept
-explainer, distinct from the news.
+  segments[0] = "Concept of the Day"  (always present — comes from
+    source=concept_of_the_day; carries the educational anchor)
+  segments[1] = "Critical CVEs and Advisories"  (NVD, CISA KEV, GitHub
+    Advisories, Microsoft Security, Cisco Talos, CERT-In, vendor RSS)
+  segments[2] = "Web and AI Security Research"  (PortSwigger, OWASP, AI
+    security, Project Zero, ai_newsletters)
+  segments[3] = "Exploits, PoCs, and Writeups"  (Exploit-DB, Reddit
+    r/netsec, Reddit r/bugbounty, Trail of Bits)
+  segments[4] = "Threat Intelligence and Incidents"  (Krebs, The Hacker
+    News, Dark Reading, Infosecurity Magazine, BleepingComputer, CyberWire
+    Daily, DFIR Report, the_record, cisa_advisories, ransomware_live,
+    abusech_ransomware, Mastodon, Nitter, HackerOne)
+  segments[5] = "Tools, Conferences, and Community"  (ProjectDiscovery,
+    conferences, Darknet Diaries, Risky Business, Critical Thinking,
+    BBRE, defcon_blackhat, YouTube, Hardware Hacking, Nullcon,
+    Hacker News, nullcon)
+  segments[6] = "DEF CON & Black Hat Talks"  (defcon, blackhat source
+    items only — the conference-talks lane the listener asked for)
 
-The concept's talking_points (in its summary) and build_it pointer
-are the two ingredients the script uses. Preserve both verbatim in
-the segment's items.key_facts so the script writer doesn't have to
-re-derive them.
+HARD RULES:
+- segments[0] ("Concept of the Day") is ALWAYS present, even on a
+  quiet news day. The concept item's talking_points and build_it
+  pointer are the ingredients for the script. Do NOT fold the concept
+  into another segment. The shownotes renders it as a top-level `##`
+  section, separate from `## News and Analysis`.
+- segments[1]–[6] are each present IFF the corresponding family
+  returned >=1 items. Omit a segment if its family has zero items.
+  NEVER invent a placeholder segment with no items.
+- The "DEF CON & Black Hat Talks" segment is reserved for actual
+  conference talk uploads (videos, slide decks, CFP submissions).
+  Announcement items (event dates, hotel updates) go in "Tools,
+  Conferences, and Community", not here.
 
 CWE CLASS EXTRACTION: For every CVE discussed, include the CWE class
 in the headline when the source material makes it identifiable. The
@@ -361,8 +371,8 @@ def _gather_all() -> list[Item]:
         ("owasp", owasp.fetch),
         ("exploit_db", exploit_db.fetch),
         ("github_advisories", github_advisories.fetch),
-        # NOTE: hak5 source disabled 2026-06-16 (YouTube RSS feed 404'd).
-        # Re-add ("hak5", hak5.fetch) when the feed is restored.
+        # NOTE: hak5 restored 2026-06-16 in degraded mode (multi-fallback).
+        ("hak5", hak5.fetch),
         ("defcon_blackhat", defcon_blackhat.fetch),
         ("ai_newsletters", ai_newsletters.fetch),
         ("nullcon", nullcon.fetch),
@@ -373,12 +383,6 @@ def _gather_all() -> list[Item]:
         ("ransomware_live", ransomware_live.fetch),
         ("abusech_ransomware", abusech_ransomware.fetch),
     ]
-
-    # NOTE: hak5 was disabled 2026-06-16 because Hak5's YouTube channel RSS
-    # feed has been returning 404 across all proxies (YouTube direct,
-    # Invidious, Piped). Re-enable by uncommenting the line below once
-    # the feed is restored. The hak5.py source module was deleted; you'll
-    # need to re-create it (or use the existing one once you re-add it).
     out: list[Item] = []
     for name, fn in fetchers:
         try:

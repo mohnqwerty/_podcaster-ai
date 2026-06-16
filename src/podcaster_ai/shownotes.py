@@ -107,7 +107,7 @@ def _get_source_attribution(source: str) -> str:
         "critical_thinking": "Critical Thinking (Bug Bounty Podcast)",
         "bbre": "Bug Bounty Reports Explained",
         "dfir_report": "The DFIR Report",
-        "hak5": "Hak5 (disabled — feed 404s)",
+        "hak5": "Hak5",
         "defcon": "DEF CON",
         "blackhat": "Black Hat",
         "conferences_youtube": "DEF CON / Black Hat",
@@ -155,6 +155,99 @@ def _source_citation_map(items: list[dict[str, Any]]) -> dict[str, str]:
     return seen
 
 
+def _render_segment(
+    lines: list[str],
+    *,
+    level: int,
+    name: str,
+    angle: str,
+    items: list[dict[str, Any]],
+    raw_items: list[dict[str, Any]],
+    cit_map: dict[str, str],
+    is_concept: bool = False,
+) -> None:
+    """Render one segment (top-level or sub-segment) to the markdown lines.
+
+    level=2 produces `## ` (top-level section), level=3 produces `### `
+    (sub-section of News and Analysis). is_concept=True adds the
+    "Today's concept" callout above the header.
+    """
+    if is_concept:
+        lines.append("> **Today's concept** — sit back, this is the educational anchor of the episode.\n")
+
+    header = "##" if level == 2 else "###"
+    lines.append(f"{header} {name}\n")
+
+    para_parts: list[str] = []
+    if angle:
+        para_parts.append(angle)
+
+    for item in items:
+        headline = item.get("headline") or ""
+        key_facts = item.get("key_facts") or []
+        key_point_raw = key_facts[0] if key_facts else ""
+        key_point = _clean_text(key_point_raw, 280) if key_point_raw else ""
+
+        # Find source citation
+        item_citations: set[int] = set()
+        for src_item in raw_items:
+            if src_item.get("title", "").strip() == headline.strip():
+                src = src_item.get("source", "")
+                if src in cit_map:
+                    item_citations.add(int(cit_map[src]))
+        cit_str = " ".join(f"[{n}]" for n in sorted(item_citations))
+
+        # Resolve a clickable URL: prefer source_urls from the segment
+        # item, fall back to raw_items by title match.
+        item_url: str = ""
+        for url in item.get("source_urls") or []:
+            if url:
+                item_url = url
+                break
+        if not item_url:
+            for src_item in raw_items:
+                if src_item.get("title", "").strip() == headline.strip():
+                    cand = src_item.get("url") or ""
+                    if cand:
+                        item_url = cand
+                        break
+
+        # Notable badge: items flagged is_notable=True by the
+        # NVD source (vendor whitelist match or CVSS >= 9.5) get a
+        # leading star so listeners can scan for the widely-used-software
+        # CVEs at a glance.
+        is_notable = bool((item.get("extra") or {}).get("is_notable"))
+
+        if item_url:
+            linked_headline = f"[{headline}]({item_url})"
+        else:
+            linked_headline = headline
+
+        # CWE inline tag.
+        cwe_str = _format_cwe(item.get("cwe"))
+        if cwe_str:
+            linked_headline = f"{linked_headline} · {cwe_str}"
+
+        # Prepend the star for notable items.
+        if is_notable:
+            linked_headline = f"★ {linked_headline}"
+
+        if key_point:
+            if item_url:
+                item_text = f"{linked_headline} — {key_point}"
+            else:
+                item_text = f"{linked_headline}, {key_point}"
+        else:
+            item_text = linked_headline
+        if cit_str:
+            item_text += f" {cit_str}"
+        para_parts.append(item_text)
+
+    if para_parts:
+        para = " ".join(p.rstrip(".") for p in para_parts).rstrip(".") + ".\n"
+        lines.append(para)
+
+
 def generate_shownotes(
     script: ScriptResult,
     brief: dict[str, Any],
@@ -188,100 +281,80 @@ def generate_shownotes(
     # News and Analysis — segments as paragraphs with citation markers
     raw_items = brief.get("_items") or []
     cit_map = _source_citation_map(raw_items)
-    if segments:
+
+    # Partition segments by name. The LLM must use verbatim names from
+    # the research.py system prompt, but a defensive partition ensures
+    # the shownotes layout is stable even if the LLM deviates.
+    concept_seg = next(
+        (s for s in segments
+         if (s.get("name") or "").lower().startswith("concept of the day")
+         or (s.get("name") or "").lower() in {"builder's corner", "concept explainer"}),
+        None,
+    )
+    family_segs = [
+        s for s in segments
+        if s is not concept_seg
+        and not (s.get("name") or "").lower().startswith("def con & black hat")
+    ]
+    conf_talks_seg = next(
+        (s for s in segments if (s.get("name") or "").lower().startswith("def con & black hat")),
+        None,
+    )
+    # Also pull DEF CON / Black Hat items out of the family segments
+    # (the LLM may have bundled them into "Tools, Conferences, and
+    # Community" instead of giving them their own segment).
+    if conf_talks_seg is None:
+        talks_items = [
+            it
+            for s in family_segs
+            for it in s.get("items") or []
+            if (it.get("source") or it.get("_source") or "").lower() in {"defcon", "blackhat", "conferences_youtube"}
+        ]
+        if talks_items:
+            conf_talks_seg = {
+                "name": "DEF CON & Black Hat Talks",
+                "angle": "Conference talks and announcements from DEF CON and Black Hat. Watch the deep-dive research presentations.",
+                "items": talks_items,
+            }
+
+    # === Top-level: Concept of the Day ===
+    if concept_seg:
+        _render_segment(
+            lines,
+            level=2,
+            name="Concept of the Day",
+            angle="",
+            items=concept_seg.get("items") or [],
+            raw_items=raw_items,
+            cit_map=cit_map,
+            is_concept=True,
+        )
+
+    # === Top-level: News and Analysis (5 family sub-segments) ===
+    if family_segs:
         lines.append("## News and Analysis\n")
-
-        for seg in segments:
-            seg_name = seg.get("name") or "Highlights"
-            angle = seg.get("angle") or ""
-
-            # The Concept of the Day segment gets a visual callout: a
-            # leading "Today's concept" tagline, then the segment header.
-            # Detect it by checking the segment's items for a concept
-            # source tag (set by concept_pool.py as "concept_of_the_day").
-            is_concept = any(
-                (it.get("source") == "concept_of_the_day")
-                for it in seg.get("items") or []
+        for seg in family_segs:
+            _render_segment(
+                lines,
+                level=3,
+                name=seg.get("name") or "Highlights",
+                angle=seg.get("angle") or "",
+                items=seg.get("items") or [],
+                raw_items=raw_items,
+                cit_map=cit_map,
             )
-            if is_concept:
-                lines.append("> **Today's concept** — sit back, this is the educational anchor of the episode.\n")
 
-            lines.append(f"### {seg_name}\n")
-
-            # Opening sentence with angle
-            para_parts: list[str] = []
-            if angle:
-                para_parts.append(angle)
-
-            # Build item descriptions with citations + hyperlinks
-            for item in seg.get("items") or []:
-                headline = item.get("headline") or ""
-                key_facts = item.get("key_facts") or []
-                key_point_raw = key_facts[0] if key_facts else ""
-                key_point = _clean_text(key_point_raw, 280) if key_point_raw else ""
-
-                # Find source citation
-                item_citations: set[int] = set()
-                for src_item in raw_items:
-                    if src_item.get("title", "").strip() == headline.strip():
-                        src = src_item.get("source", "")
-                        if src in cit_map:
-                            item_citations.add(int(cit_map[src]))
-                cit_str = " ".join(f"[{n}]" for n in sorted(item_citations))
-
-                # Resolve a clickable URL: prefer source_urls from the segment
-                # item, fall back to raw_items by title match.
-                item_url: str = ""
-                for url in item.get("source_urls") or []:
-                    if url:
-                        item_url = url
-                        break
-                if not item_url:
-                    for src_item in raw_items:
-                        if src_item.get("title", "").strip() == headline.strip():
-                            cand = src_item.get("url") or ""
-                            if cand:
-                                item_url = cand
-                                break
-
-                # Notable badge: items flagged is_notable=True by the
-                # NVD source (vendor whitelist match or CVSS >= 9.5)
-                # get a leading star so listeners can scan for the
-                # widely-used-software CVEs at a glance.
-                is_notable = bool((item.get("extra") or {}).get("is_notable"))
-
-                if item_url:
-                    linked_headline = f"[{headline}]({item_url})"
-                else:
-                    linked_headline = headline
-
-                # CWE inline tag: if the brief item carries a CWE, append
-                # " · CWE-78 (OS Command Injection)" to the display title
-                # (the markdown link, not the raw headline).
-                cwe_str = _format_cwe(item.get("cwe"))
-                if cwe_str and item_url:
-                    linked_headline = f"{linked_headline} · {cwe_str}"
-                elif cwe_str:
-                    linked_headline = f"{linked_headline} · {cwe_str}"
-
-                # Prepend the star for notable items.
-                if is_notable:
-                    linked_headline = f"★ {linked_headline}"
-
-                if key_point:
-                    if item_url:
-                        item_text = f"{linked_headline} — {key_point}"
-                    else:
-                        item_text = f"{linked_headline}, {key_point}"
-                else:
-                    item_text = linked_headline
-                if cit_str:
-                    item_text += f" {cit_str}"
-                para_parts.append(item_text)
-
-            if para_parts:
-                para = " ".join(p.rstrip(".") for p in para_parts).rstrip(".") + ".\n"
-                lines.append(para)
+    # === Top-level: DEF CON & Black Hat Talks (separate from Conferences) ===
+    if conf_talks_seg and (conf_talks_seg.get("items") or []):
+        _render_segment(
+            lines,
+            level=2,
+            name="DEF CON & Black Hat Talks",
+            angle=conf_talks_seg.get("angle") or "",
+            items=conf_talks_seg.get("items") or [],
+            raw_items=raw_items,
+            cit_map=cit_map,
+        )
 
     # References and Rabbit Holes — diverse picks from across all sources,
     # each with a learning hook, NOT just the top-of-rank CVEs.
@@ -321,7 +394,7 @@ def generate_shownotes(
             "darknet_diaries",        # operator watches this
             "critical_thinking",      # operator watches this
             "bbre",                    # operator watches this
-            "hak5",                    # disabled — YouTube feed 404s; keep priority slot for re-enable
+            "hak5",                    # operator watches this; degraded mode w/ multiple fallbacks
             "defcon",                  # operator wants conference talks
             "blackhat",                # operator wants conference talks
             "conferences_youtube",     # alias for the defcon+blackhat pair
@@ -430,7 +503,7 @@ def generate_shownotes(
             "dfir_report": "Deep incident analysis — read for the kill-chain reconstruction.",
             "ai_security": "AI/LLM security news from VentureBeat.",
             "hardware_hacking": "Hackaday security hacks — firmware, side-channels, physical attacks.",
-            "hak5": "Hak5 (source disabled — YouTube RSS feed 404s as of 2026-06-16; re-enable when restored).",
+            "hak5": "Hands-on hardware + tradecraft — Threat Wire daily 5-min news plus deep-dive episodes on tools and techniques. Source uses multi-URL fallback (Invidious + YouTube direct) since the primary RSS endpoint is intermittent.",
             "defcon": "DEF CON conference talk — these are full-length, deep-dive sessions on cutting-edge offensive security research.",
             "blackhat": "Black Hat conference talk — research-grade presentations from the industry's most technical researchers.",
             "conferences_youtube": "DEF CON / Black Hat conference talk — deep, full-length research presentations.",
@@ -594,6 +667,92 @@ def generate_shownotes(
     return result
 
 
+def _render_pdf_segment(
+    pdf,
+    *,
+    level: int,
+    name: str,
+    angle: str,
+    items: list[dict[str, Any]],
+    raw_items: list[dict[str, Any]],
+    cit_map: dict[str, str],
+) -> None:
+    """Render one segment into the PDF, with per-item clickable links.
+
+    level=2 produces a bold 11pt heading (top-level), level=3 produces
+    a bold 10pt heading (sub-section of News and Analysis).
+    """
+    header_size = 11 if level == 2 else 10
+    pdf.set_font("DejaVu", "B", header_size)
+    pdf.cell(0, 6 if level == 3 else 7, name, new_x="LMARGIN", new_y="NEXT")
+
+    if angle:
+        pdf.set_font("DejaVu", "", 8)
+        pdf.set_text_color(80, 80, 80)
+        pdf.multi_cell(0, 4, angle, new_x="LMARGIN", new_y="NEXT")
+        pdf.set_text_color(0, 0, 0)
+        pdf.ln(1)
+
+    for item in items:
+        headline = item.get("headline") or ""
+        key_facts = item.get("key_facts") or []
+        key_point = _clean_text(key_facts[0], 200) if key_facts else ""
+
+        item_citations: set[int] = set()
+        for src_item in raw_items:
+            if src_item.get("title", "").strip() == headline.strip():
+                src = src_item.get("source", "")
+                if src in cit_map:
+                    item_citations.add(int(cit_map[src]))
+        cit_str = " ".join(f"[{n}]" for n in sorted(item_citations))
+
+        # Build the clickable link text from source_urls / raw_items.
+        item_url: str = ""
+        for url in item.get("source_urls") or []:
+            if url:
+                item_url = url
+                break
+        if not item_url:
+            for src_item in raw_items:
+                if src_item.get("title", "").strip() == headline.strip():
+                    cand = src_item.get("url") or ""
+                    if cand:
+                        item_url = cand
+                        break
+
+        # CWE suffix (e.g. " · CWE-78 (OS Command Injection)")
+        cwe_str = _format_cwe(item.get("cwe"))
+        is_notable = bool((item.get("extra") or {}).get("is_notable"))
+
+        # Build the headline label that will become the link.
+        link_label = headline
+        if cwe_str:
+            link_label = f"{headline} \u00b7 {cwe_str}"
+        if len(link_label) > 220:
+            link_label = link_label[:217] + "\u2026"
+        if is_notable:
+            link_label = f"★ {link_label}"
+
+        # Render: bullet + linked headline in blue, then plain tail.
+        pdf.set_font("DejaVu", "", 8)
+        pdf.write(4.5, "\u2022  ")
+        if item_url:
+            pdf.set_text_color(0, 0, 200)
+            pdf.set_font("DejaVu", "B", 8)
+            pdf.write(4.5, link_label, link=item_url)
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_font("DejaVu", "", 8)
+        else:
+            pdf.set_font("DejaVu", "B", 8)
+            pdf.write(4.5, link_label)
+        if key_point:
+            pdf.write(4.5, f" \u2014 {key_point}")
+        if cit_str:
+            pdf.write(4.5, f"  {cit_str}")
+        pdf.ln(5)
+    pdf.ln(2)
+
+
 def generate_pdf(
     script: ScriptResult,
     brief: dict[str, Any],
@@ -645,80 +804,75 @@ def generate_pdf(
     pdf.multi_cell(0, 4.5, summary, new_x="LMARGIN", new_y="NEXT")
     pdf.ln(3)
 
+    # News and Analysis — partition segments by name, same logic as
+    # generate_shownotes so the PDF and the .md have identical structure.
+    concept_seg = next(
+        (s for s in segments if (s.get("items") or [{}])[0].get("source") == "concept_of_the_day"),
+        None,
+    )
+    family_segs = [
+        s for s in segments
+        if s is not concept_seg
+        and not (s.get("name") or "").lower().startswith("def con & black hat")
+    ]
+    conf_talks_seg = next(
+        (s for s in segments if (s.get("name") or "").lower().startswith("def con & black hat")),
+        None,
+    )
+    if conf_talks_seg is None:
+        talks_items = [
+            it
+            for s in family_segs
+            for it in s.get("items") or []
+            if (it.get("source") or it.get("_source")) in {"defcon", "blackhat", "conferences_youtube"}
+        ]
+        if talks_items:
+            conf_talks_seg = {
+                "name": "DEF CON & Black Hat Talks",
+                "angle": "",
+                "items": talks_items,
+            }
+
+    # Top-level: Concept of the Day
+    if concept_seg:
+        _render_pdf_segment(
+            pdf,
+            level=2,
+            name="Concept of the Day",
+            angle="",
+            items=concept_seg.get("items") or [],
+            raw_items=raw_items,
+            cit_map=cit_map,
+        )
+
     # News and Analysis
-    if segments:
+    if family_segs:
         pdf.set_font("DejaVu", "B", 11)
         pdf.cell(0, 7, "News and Analysis", new_x="LMARGIN", new_y="NEXT")
         pdf.ln(1)
 
-        for seg in segments:
-            seg_name = seg.get("name") or "Highlights"
-            pdf.set_font("DejaVu", "B", 10)
-            pdf.cell(0, 6, seg_name, new_x="LMARGIN", new_y="NEXT")
+        for seg in family_segs:
+            _render_pdf_segment(
+                pdf,
+                level=3,
+                name=seg.get("name") or "Highlights",
+                angle=seg.get("angle") or "",
+                items=seg.get("items") or [],
+                raw_items=raw_items,
+                cit_map=cit_map,
+            )
 
-            angle = seg.get("angle") or ""
-            if angle:
-                pdf.set_font("DejaVu", "", 8)
-                pdf.set_text_color(80, 80, 80)
-                pdf.multi_cell(0, 4, angle, new_x="LMARGIN", new_y="NEXT")
-                pdf.set_text_color(0, 0, 0)
-                pdf.ln(1)
-
-            for item in seg.get("items") or []:
-                headline = item.get("headline") or ""
-                key_facts = item.get("key_facts") or []
-                key_point = _clean_text(key_facts[0], 200) if key_facts else ""
-
-                item_citations: set[int] = set()
-                for src_item in raw_items:
-                    if src_item.get("title", "").strip() == headline.strip():
-                        src = src_item.get("source", "")
-                        if src in cit_map:
-                            item_citations.add(int(cit_map[src]))
-                cit_str = " ".join(f"[{n}]" for n in sorted(item_citations))
-
-                # Build the clickable link text from source_urls / raw_items.
-                item_url: str = ""
-                for url in item.get("source_urls") or []:
-                    if url:
-                        item_url = url
-                        break
-                if not item_url:
-                    for src_item in raw_items:
-                        if src_item.get("title", "").strip() == headline.strip():
-                            cand = src_item.get("url") or ""
-                            if cand:
-                                item_url = cand
-                                break
-
-                # CWE suffix (e.g. " · CWE-78 (OS Command Injection)")
-                cwe_str = _format_cwe(item.get("cwe"))
-
-                # Build the headline label that will become the link.
-                link_label = headline
-                if cwe_str:
-                    link_label = f"{headline} \u00b7 {cwe_str}"
-                if len(link_label) > 220:
-                    link_label = link_label[:217] + "\u2026"
-
-                # Render: bullet + linked headline in blue, then plain tail.
-                pdf.set_font("DejaVu", "", 8)
-                pdf.write(4.5, "\u2022  ")
-                if item_url:
-                    pdf.set_text_color(0, 0, 200)
-                    pdf.set_font("DejaVu", "B", 8)
-                    pdf.write(4.5, link_label, link=item_url)
-                    pdf.set_text_color(0, 0, 0)
-                    pdf.set_font("DejaVu", "", 8)
-                else:
-                    pdf.set_font("DejaVu", "B", 8)
-                    pdf.write(4.5, link_label)
-                if key_point:
-                    pdf.write(4.5, f" \u2014 {key_point}")
-                if cit_str:
-                    pdf.write(4.5, f"  {cit_str}")
-                pdf.ln(5)
-            pdf.ln(2)
+    # Top-level: DEF CON & Black Hat Talks
+    if conf_talks_seg and (conf_talks_seg.get("items") or []):
+        _render_pdf_segment(
+            pdf,
+            level=2,
+            name="DEF CON & Black Hat Talks",
+            angle=conf_talks_seg.get("angle") or "",
+            items=conf_talks_seg.get("items") or [],
+            raw_items=raw_items,
+            cit_map=cit_map,
+        )
 
     # References and Rabbit Holes
     if raw_items:

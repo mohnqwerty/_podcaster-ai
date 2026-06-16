@@ -51,13 +51,28 @@ Dialogue Mechanics:
 
 Structure (cover segments from the brief in order, ~5-8 lines per segment):
 1. Cold-open hook (first 2-3 lines): Start mid-debate or with a punchy fact from today's news.
-2-5. Cover each segment from the brief with technical depth. Explain the actual bugs, not just that they exist.
-6. "References & Rabbit Holes" segment (8-12 lines):
+2. "Concept of the Day" segment FIRST (8-12 lines) — the brief always
+   contains a segment called "Concept of the Day" or "Builder's Corner"
+   with the source tagged as concept_of_the_day. This must be the FIRST
+   segment discussed after the cold-open, before any CVE news. See the
+   "CONCEPT OF THE DAY" rule below for the dialogue structure.
+3-7. Cover each News and Analysis sub-segment from the brief with
+   technical depth. The brief will typically have 2-4 of these:
+   "Critical CVEs and Advisories", "Web and AI Security Research",
+   "Exploits, PoCs, and Writeups", "Threat Intelligence and Incidents",
+   "Tools, Conferences, and Community". If the brief contains a
+   "DEF CON & Black Hat Talks" segment, give it 6-8 lines of dialogue
+   here. Don't skip a segment even if it has only 1-2 items.
+8. "References & Rabbit Holes" segment (8-12 lines):
    - Pick 3-4 real items from the brief's References list.
    - For each: "why it matters" + what to look for.
+   - Include at least one learning-rich source (PortSwigger, Exploit-DB,
+     Reddit r/netsec, OWASP, Trail of Bits, Project Zero, GHSA, or a
+     podcast — Darknet Diaries, CTBB, BBRE, Hak5, DEF CON, Black Hat,
+     AI newsletters). If the References list has no such item, say so
+     honestly and pick the highest-signal CVE writeup instead.
    - Include Mastodon items with "We saw this on Mastodon".
-   - Mention the specific source descriptively (e.g., "the PortSwigger research on XSS in PDF generators").
-7. Punchy outro (2-3 lines): Quick sign-off, no fluff.
+9. Punchy outro (2-3 lines): Quick sign-off, no fluff.
 
 Output format (STRICT):
 - Plain text. Each line: "MAYA:" or "ARJUN:" followed by a single space and the dialogue.

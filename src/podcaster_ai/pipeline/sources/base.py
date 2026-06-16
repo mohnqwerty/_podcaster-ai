@@ -55,10 +55,10 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "bbre": 0.85,                  # Reads bug reports
     # Personalised for the operator — Hak5, DEF CON / Black Hat, AI Engineer
     # ecosystem, Nullcon + HITB conferences, Hacker News front page.
-    # hak5 disabled 2026-06-16: YouTube channel RSS feed 404s across all
-    # proxies (YouTube direct, Invidious, Piped). Re-enable by uncommenting
-    # the line below and re-creating src/podcaster_ai/pipeline/sources/hak5.py.
-    # "hak5": 1.0,                # Threat Wire + hands-on tradecraft
+    # hak5 restored 2026-06-16 in degraded mode (multi-URL fallback).
+    # The YouTube RSS feed has been 404'ing intermittently; the source
+    # cycles through Invidious + YouTube direct until one works.
+    "hak5": 1.0,                # Threat Wire + hands-on tradecraft
     "defcon": 1.0,                 # Conference talks
     "blackhat": 1.0,               # Conference talks
     "conferences_youtube": 1.0,    # alias for the defcon+blackhat pair
