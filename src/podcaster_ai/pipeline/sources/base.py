@@ -55,7 +55,10 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "bbre": 0.85,                  # Reads bug reports
     # Personalised for the operator — Hak5, DEF CON / Black Hat, AI Engineer
     # ecosystem, Nullcon + HITB conferences, Hacker News front page.
-    "hak5": 0.85,                  # Hands-on hardware + tradecraft
+    # hak5 disabled 2026-06-16: YouTube channel RSS feed 404s across all
+    # proxies (YouTube direct, Invidious, Piped). Re-enable by uncommenting
+    # the line below and re-creating src/podcaster_ai/pipeline/sources/hak5.py.
+    # "hak5": 1.0,                # Threat Wire + hands-on tradecraft
     "defcon": 1.0,                 # Conference talks
     "blackhat": 1.0,               # Conference talks
     "conferences_youtube": 1.0,    # alias for the defcon+blackhat pair
@@ -67,6 +70,11 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "nullcon": 0.9,                # India offensive-security conference
     "hacker_news": 0.6,            # HN frontpage (filtered downstream)
     "concept_of_the_day": 0.95,    # Curated daily concept — always included
+    # Ransomware / threat intel tier (replaces RansomWatch)
+    "the_record": 0.85,            # Recorded Future News — daily journalism
+    "cisa_advisories": 0.95,       # Official CISA advisories — high-signal
+    "ransomware_live": 0.8,        # Real-time victim tracking
+    "abusech_ransomware": 0.8,     # abuse.ch tracker — BTC addresses, C2s
 }
 
 DEFAULT_TIMEOUT = httpx.Timeout(20.0, connect=10.0)

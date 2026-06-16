@@ -15,9 +15,11 @@ from .pipeline.sources import (
     Item,
 )
 from .pipeline.sources import (
+    abusech_ransomware,
     ai_newsletters,
     ai_security_news,
     cert_in,
+    cisa_advisories,
     cisco_talos,
     cisa_kev,
     concept_pool,
@@ -30,7 +32,6 @@ from .pipeline.sources import (
     github_advisories,
     hacker_news,
     hackerone_hacktivity,
-    hak5,
     hardware_hacking,
     infosecurity_magazine,
     krebs_on_security,
@@ -43,8 +44,10 @@ from .pipeline.sources import (
     portswigger_rss,
     project_zero,
     projectdiscovery_releases,
+    ransomware_live,
     reddit_netsec,
     the_hacker_news,
+    the_record,
     threat_intel_news,
     trail_of_bits,
     vendor_rss,
@@ -89,9 +92,11 @@ _SOURCE_FAMILIES: list[tuple[str, set[str], str]] = [
         {
             "krebs", "the_hacker_news", "dark_reading", "infosecurity_magazine",
             "threat_intel_news", "cyberwire_daily", "dfir_report",
+            "the_record", "cisa_advisories",
+            "ransomware_live", "abusech_ransomware",
             "mastodon", "nitter", "hackerone",
         },
-        "Active threat actor activity, breach analysis, and industry context.",
+        "Active threat actor activity, breach analysis, ransomware tracking, and industry context.",
     ),
     (
         "Tools, Conferences, and Community",
@@ -356,13 +361,24 @@ def _gather_all() -> list[Item]:
         ("owasp", owasp.fetch),
         ("exploit_db", exploit_db.fetch),
         ("github_advisories", github_advisories.fetch),
-        ("hak5", hak5.fetch),
+        # NOTE: hak5 source disabled 2026-06-16 (YouTube RSS feed 404'd).
+        # Re-add ("hak5", hak5.fetch) when the feed is restored.
         ("defcon_blackhat", defcon_blackhat.fetch),
         ("ai_newsletters", ai_newsletters.fetch),
         ("nullcon", nullcon.fetch),
         ("hacker_news", hacker_news.fetch),
         ("concept_of_the_day", concept_pool.fetch),
+        ("the_record", the_record.fetch),
+        ("cisa_advisories", cisa_advisories.fetch),
+        ("ransomware_live", ransomware_live.fetch),
+        ("abusech_ransomware", abusech_ransomware.fetch),
     ]
+
+    # NOTE: hak5 was disabled 2026-06-16 because Hak5's YouTube channel RSS
+    # feed has been returning 404 across all proxies (YouTube direct,
+    # Invidious, Piped). Re-enable by uncommenting the line below once
+    # the feed is restored. The hak5.py source module was deleted; you'll
+    # need to re-create it (or use the existing one once you re-add it).
     out: list[Item] = []
     for name, fn in fetchers:
         try:
@@ -412,15 +428,41 @@ def _cvss_score(item: Item) -> float:
         return 0.0
 
 
+def _build_social_signal_index(items: list[Item]) -> dict[str, int]:
+    """Build a map: dedupe-key -> number of distinct sources mentioning it.
+
+    A CVE/url that appears in 2+ sources is more likely to be a real,
+    community-validated event. Used to boost ranking.
+    """
+    by_key: dict[str, set[str]] = {}
+    for it in items:
+        if (it.extra or {}).get("is_concept"):
+            continue  # don't cross-pollinate the concept-of-the-day
+        k = _dedupe_key(it)
+        by_key.setdefault(k, set()).add(it.source)
+    return {k: len(srcs) for k, srcs in by_key.items() if len(srcs) > 1}
+
+
 def _rank(items: Iterable[Item]) -> list[Item]:
     now = datetime.now(timezone.utc)
+    social_index = _build_social_signal_index(list(items))
 
     def score(it: Item) -> float:
         weight = SOURCE_WEIGHTS.get(it.source, 0.5)
+        # Cross-source social signal: an item corroborated by 2+ other
+        # sources gets a 0.5-1.5 boost. Items with is_notable=True (NVD
+        # vendor match or CVSS >= 9.5) get a 0.5 boost. Otherwise 0.
+        social_bonus = 0.0
+        if (it.extra or {}).get("is_notable"):
+            social_bonus += 0.5
+        n_corroborating = social_index.get(_dedupe_key(it), 1) - 1
+        if n_corroborating >= 1:
+            social_bonus += min(1.0, 0.5 * n_corroborating)
         return (
             (1.5 * weight)
             + (1.0 * _recency_score(it, now))
             + (1.2 * _cvss_score(it))
+            + social_bonus
         )
 
     return sorted(items, key=score, reverse=True)

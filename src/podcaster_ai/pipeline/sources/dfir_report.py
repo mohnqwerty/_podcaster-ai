@@ -1,10 +1,13 @@
-"""The DFIR Report source.
+"""DFIR Report source.
 
-Fetches latest incident analysis from RSS feed.
-Capped to 1 latest report per run.
+Deep incident-response write-ups from The DFIR Report team. Each post
+is a multi-thousand-word reconstruction of a real intrusion, with
+timestamps, IOCs, MITRE ATT&CK technique IDs, and lessons learned.
+Considered the gold standard for learning tradecraft on the blue side.
 
-Configuration (env):
-- DFIR_REPORT_ENABLED   (bool, default false)
+The DFIR Report was previously gated behind DFIR_REPORT_ENABLED in
+the .env. It is now active by default — these reports are too valuable
+to skip.
 """
 
 from __future__ import annotations
@@ -22,10 +25,11 @@ log = structlog.get_logger(__name__)
 
 SOURCE: Final[str] = "dfir_report"
 FEED_URL: Final[str] = "https://thedfirreport.com/feed/"
+MAX_ITEMS: Final[int] = 4
+LOOKBACK_DAYS: Final[int] = 60  # DFIR publishes a few posts per month
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
-    """Parse boolean from environment variable."""
     raw = os.environ.get(name)
     if raw is None or raw.strip() == "":
         return default
@@ -33,8 +37,7 @@ def _env_bool(name: str, default: bool = False) -> bool:
 
 
 def fetch() -> list[Item]:
-    """Return latest DFIR Report incident analysis."""
-    if not _env_bool("DFIR_REPORT_ENABLED"):
+    if not _env_bool("DFIR_REPORT_ENABLED", default=True):
         log.info("dfir_report.disabled", reason="DFIR_REPORT_ENABLED not set")
         return []
 
@@ -48,9 +51,11 @@ def fetch() -> list[Item]:
         return []
 
     items: list[Item] = []
-    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=LOOKBACK_DAYS)
 
     for entry in parsed.entries or []:
+        if len(items) >= MAX_ITEMS:
+            break
         try:
             published = parse_dt(entry.get("published") or entry.get("updated"))
             if published is None or published < cutoff:
@@ -60,7 +65,7 @@ def fetch() -> list[Item]:
             if not link:
                 continue
 
-            title = (entry.get("title") or "Untitled report").strip()
+            title = (entry.get("title") or "Untitled").strip()
             summary = (entry.get("summary") or entry.get("description") or "").strip()
             if not summary:
                 continue
@@ -74,10 +79,7 @@ def fetch() -> list[Item]:
                     published_at=published,
                 )
             )
-            # Cap to 1 latest report per run
-            if len(items) >= 1:
-                break
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             log.debug("dfir_report.entry_skipped", error=str(exc))
             continue
 

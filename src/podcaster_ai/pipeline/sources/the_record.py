@@ -1,11 +1,13 @@
-"""Hak5 YouTube channel source.
+"""The Record (Recorded Future News) — daily cybercrime journalism.
 
-Hak5 produces hardware-hacking and infosec content including Threat Wire
-(daily 5-min news), Hak5 show, Packet Hacking, and Bash Bunny / LAN Turtle
-walkthroughs. All episodes are about practical offensive security tradecraft.
+The Record is Recorded Future's news arm. It covers ransomware incidents,
+cybercrime arrests, nation-state operations, and geopolitics with technical
+depth and a daily cadence. The single best source for 'what just happened
+in ransomware today'.
 
-For the elite-hacker goal: Hak5 content is hands-on and reproducible —
-the kind of content that turns passive listeners into active pentesters.
+For the elite-hacker goal: The Record connects CVEs to live incidents
+faster than any CVE database. When a new exploit chain is used in the
+wild, you'll see it here within hours, often before NVD indexes it.
 """
 
 from __future__ import annotations
@@ -20,10 +22,10 @@ from .base import Item, http_client, parse_dt
 
 log = structlog.get_logger(__name__)
 
-SOURCE: Final[str] = "hak5"
-FEED_URL: Final[str] = "https://www.youtube.com/feeds/videos.xml?channel_id=UC3s0BtrBJpwNDaflRSoiieQ"
-MAX_ITEMS: Final[int] = 6
-LOOKBACK_DAYS: Final[int] = 30
+SOURCE: Final[str] = "the_record"
+FEED_URL: Final[str] = "https://therecord.media/feed/"
+MAX_ITEMS: Final[int] = 5
+LOOKBACK_DAYS: Final[int] = 7
 
 
 def fetch() -> list[Item]:
@@ -32,8 +34,8 @@ def fetch() -> list[Item]:
             resp = client.get(FEED_URL)
             resp.raise_for_status()
             parsed = feedparser.parse(resp.content)
-    except Exception as exc:
-        log.warning("hak5.fetch_failed", error=str(exc))
+    except Exception as exc:  # noqa: BLE001
+        log.warning("the_record.fetch_failed", error=str(exc))
         return []
 
     items: list[Item] = []
@@ -66,8 +68,8 @@ def fetch() -> list[Item]:
                 )
             )
         except Exception as exc:
-            log.debug("hak5.entry_skipped", error=str(exc))
+            log.debug("the_record.entry_skipped", error=str(exc))
             continue
 
-    log.info("hak5.fetched", count=len(items))
+    log.info("the_record.fetched", count=len(items))
     return items

@@ -107,7 +107,7 @@ def _get_source_attribution(source: str) -> str:
         "critical_thinking": "Critical Thinking (Bug Bounty Podcast)",
         "bbre": "Bug Bounty Reports Explained",
         "dfir_report": "The DFIR Report",
-        "hak5": "Hak5",
+        "hak5": "Hak5 (disabled — feed 404s)",
         "defcon": "DEF CON",
         "blackhat": "Black Hat",
         "conferences_youtube": "DEF CON / Black Hat",
@@ -119,6 +119,10 @@ def _get_source_attribution(source: str) -> str:
         "nullcon": "Nullcon (India)",
         "hacker_news": "Hacker News",
         "concept_of_the_day": "Concept of the Day (curated)",
+        "the_record": "The Record (Recorded Future News)",
+        "cisa_advisories": "BleepingComputer (ransomware coverage)",
+        "ransomware_live": "ransomware.live (active group catalog)",
+        "abusech_ransomware": "abuse.ch Cybercrime Feed",
     }
     return mapping.get(source, source.replace("_", " ").title())
 
@@ -240,6 +244,12 @@ def generate_shownotes(
                                 item_url = cand
                                 break
 
+                # Notable badge: items flagged is_notable=True by the
+                # NVD source (vendor whitelist match or CVSS >= 9.5)
+                # get a leading star so listeners can scan for the
+                # widely-used-software CVEs at a glance.
+                is_notable = bool((item.get("extra") or {}).get("is_notable"))
+
                 if item_url:
                     linked_headline = f"[{headline}]({item_url})"
                 else:
@@ -253,6 +263,10 @@ def generate_shownotes(
                     linked_headline = f"{linked_headline} · {cwe_str}"
                 elif cwe_str:
                     linked_headline = f"{linked_headline} · {cwe_str}"
+
+                # Prepend the star for notable items.
+                if is_notable:
+                    linked_headline = f"★ {linked_headline}"
 
                 if key_point:
                     if item_url:
@@ -307,7 +321,7 @@ def generate_shownotes(
             "darknet_diaries",        # operator watches this
             "critical_thinking",      # operator watches this
             "bbre",                    # operator watches this
-            "hak5",                    # operator watches this
+            "hak5",                    # disabled — YouTube feed 404s; keep priority slot for re-enable
             "defcon",                  # operator wants conference talks
             "blackhat",                # operator wants conference talks
             "conferences_youtube",     # alias for the defcon+blackhat pair
@@ -318,6 +332,10 @@ def generate_shownotes(
             "swyx",                    # swyx on AI engineering
             "nullcon",                 # India conference
             "hacker_news",             # HN front page
+            "the_record",              # Recorded Future News — daily journalism
+            "cisa_advisories",         # Official CISA advisory
+            "ransomware_live",         # Real-time victim tracking
+            "abusech_ransomware",      # abuse.ch BTC/C2 tracker
             "projectdiscovery",
             "risky_business",
             "krebs",
@@ -412,7 +430,7 @@ def generate_shownotes(
             "dfir_report": "Deep incident analysis — read for the kill-chain reconstruction.",
             "ai_security": "AI/LLM security news from VentureBeat.",
             "hardware_hacking": "Hackaday security hacks — firmware, side-channels, physical attacks.",
-            "hak5": "Hands-on hardware + tradecraft — Threat Wire daily 5-min news plus deep-dive episodes on tools and techniques.",
+            "hak5": "Hak5 (source disabled — YouTube RSS feed 404s as of 2026-06-16; re-enable when restored).",
             "defcon": "DEF CON conference talk — these are full-length, deep-dive sessions on cutting-edge offensive security research.",
             "blackhat": "Black Hat conference talk — research-grade presentations from the industry's most technical researchers.",
             "conferences_youtube": "DEF CON / Black Hat conference talk — deep, full-length research presentations.",
@@ -423,6 +441,10 @@ def generate_shownotes(
             "swyx": "swyx.io — the personal blog behind the AI Engineer Summit, covers the LLM engineering discipline.",
             "nullcon": "Nullcon (India) — flagship Indian offensive-security conference; many top bug bounty hunters debut techniques here.",
             "hacker_news": "Hacker News front page — security community discussion, often where new CVEs and PoCs are first linked.",
+            "the_record": "Recorded Future News — daily cybercrime journalism. Connects CVEs to live incidents within hours.",
+            "cisa_advisories": "BleepingComputer's ransomware coverage — daily de-facto source for new variants, leaked builders, and TTP changes.",
+            "ransomware_live": "ransomware.live active group catalog — who's operational right now, what tools they use, where their leak sites are.",
+            "abusech_ransomware": "abuse.ch cybercrime feed — fresh IoCs for active malware campaigns, the canonical source for IoC quality data.",
             "nvd": "CVE entry — check the affected versions and references for the full picture.",
             "cisa_kev": "Known-exploited vulnerability — patch this if it affects you.",
             "vendor_rss": "Vendor advisory — check affected versions and patch timeline.",
@@ -442,6 +464,9 @@ def generate_shownotes(
             cwe_suffix = _format_cwe(extra.get("cwe"))
             if cwe_suffix:
                 clean_title = f"{clean_title} · {cwe_suffix}"
+            is_notable = bool(extra.get("is_notable"))
+            if is_notable:
+                clean_title = f"★ {clean_title}"
             attribution = _get_source_attribution(src)
             hook = learning_hooks.get(src, "Read for context and follow-up research.")
             pick = picks[i % len(picks)]
