@@ -25,7 +25,7 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "hardware_hacking": 1.0,
     "krebs": 1.0,
     "threat_intel_news": 1.0,
-    "ransomwatch": 0.8,    # Ransomware victim tracking
+    "ransomwatch": 0.8,    # (no longer maintained — disabled)
     "dfir_report": 0.9,    # In-depth DFIR incident analysis
     "nitter": 0.6,         # Twitter/X via Nitter RSS — Tier 3 leads, cross-check
     "mastodon": 0.5,       # Tier 3 lead — cross-check before asserting as fact
@@ -53,6 +53,19 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "risky_business": 0.6,         # Industry commentary
     "critical_thinking": 0.85,     # Bug bounty methodology
     "bbre": 0.85,                  # Reads bug reports
+    # Personalised for the operator — Hak5, DEF CON / Black Hat, AI Engineer
+    # ecosystem, Nullcon + HITB conferences, Hacker News front page.
+    "hak5": 0.85,                  # Hands-on hardware + tradecraft
+    "defcon": 1.0,                 # Conference talks
+    "blackhat": 1.0,               # Conference talks
+    "conferences_youtube": 1.0,    # alias for the defcon+blackhat pair
+    "ai_newsletters": 0.85,        # LLM/agent/dev-tools news cycle
+    "latent_space": 0.85,
+    "interconnects": 0.85,
+    "bens_bites": 0.7,
+    "swyx": 0.7,
+    "nullcon": 0.9,                # India offensive-security conference
+    "hacker_news": 0.6,            # HN frontpage (filtered downstream)
 }
 
 DEFAULT_TIMEOUT = httpx.Timeout(20.0, connect=10.0)

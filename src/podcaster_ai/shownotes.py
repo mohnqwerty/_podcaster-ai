@@ -107,7 +107,17 @@ def _get_source_attribution(source: str) -> str:
         "critical_thinking": "Critical Thinking (Bug Bounty Podcast)",
         "bbre": "Bug Bounty Reports Explained",
         "dfir_report": "The DFIR Report",
-        "ransomwatch": "RansomWatch",
+        "hak5": "Hak5",
+        "defcon": "DEF CON",
+        "blackhat": "Black Hat",
+        "conferences_youtube": "DEF CON / Black Hat",
+        "ai_newsletters": "AI Newsletters (Latent Space / Interconnects / Ben's Bites / swyx)",
+        "latent_space": "Latent Space",
+        "interconnects": "Interconnects (Nathan Lambert)",
+        "bens_bites": "Ben's Bites",
+        "swyx": "swyx.io (AI Engineer)",
+        "nullcon": "Nullcon (India)",
+        "hacker_news": "Hacker News",
     }
     return mapping.get(source, source.replace("_", " ").title())
 
@@ -252,11 +262,20 @@ def generate_shownotes(
         lines.append("## References and Rabbit Holes\n")
         lines.append(
             "Curated picks from the day's sources, with what to look for. "
-            "Not just headlines — these are the rabbit holes worth going down.\n"
+            "Tuned to your taste: Darknet Diaries / CTBB / BBRE for the "
+            "story-and-method angle, Hak5 for hands-on tradecraft, DEF CON "
+            "and Black Hat for deep conference talks, and the AI Engineer "
+            "ecosystem (Latent Space / Interconnects / swyx / Ben's Bites) "
+            "for the LLM-and-agent side. NVD/GHSA show up here only when "
+            "the day's events demand it.\n"
         )
 
         # Priority order for picking references — learning-rich sources first,
         # so the section actually teaches instead of just listing CVE IDs.
+        # Personalised for the operator: they watch Darknet Diaries, CTBB,
+        # BBRE, Hak5; they want DEF CON / Black Hat talks; they read
+        # AI Engineer / Latent Space / Interconnects newsletters; and they
+        # track Nullcon (India) + HITB for conferences.
         reference_priority = [
             "portswigger",
             "trail_of_bits",
@@ -272,10 +291,21 @@ def generate_shownotes(
             "reddit_bugbounty",
             "github_advisories",
             "hackerone",
+            "darknet_diaries",        # operator watches this
+            "critical_thinking",      # operator watches this
+            "bbre",                    # operator watches this
+            "hak5",                    # operator watches this
+            "defcon",                  # operator wants conference talks
+            "blackhat",                # operator wants conference talks
+            "conferences_youtube",     # alias for the defcon+blackhat pair
+            "ai_newsletters",          # operator reads AI Engineer ecosystem
+            "latent_space",            # AI Engineer Summit content
+            "interconnects",           # Nathan Lambert on LLMs
+            "bens_bites",              # Ben Tossell on AI tools
+            "swyx",                    # swyx on AI engineering
+            "nullcon",                 # India conference
+            "hacker_news",             # HN front page
             "projectdiscovery",
-            "darknet_diaries",
-            "critical_thinking",
-            "bbre",
             "risky_business",
             "krebs",
             "the_hacker_news",
@@ -287,7 +317,6 @@ def generate_shownotes(
             "cisco_talos",
             "cert_in",
             "dfir_report",
-            "ransomwatch",
             "ai_security",
             "hardware_hacking",
             "nvd",
@@ -368,9 +397,19 @@ def generate_shownotes(
             "cisco_talos": "Threat intel from one of the largest research teams in the industry.",
             "cert_in": "India CERT advisory — vendor + affected versions + mitigations.",
             "dfir_report": "Deep incident analysis — read for the kill-chain reconstruction.",
-            "ransomwatch": "Active ransomware victim tracking — who's being hit right now.",
             "ai_security": "AI/LLM security news from VentureBeat.",
             "hardware_hacking": "Hackaday security hacks — firmware, side-channels, physical attacks.",
+            "hak5": "Hands-on hardware + tradecraft — Threat Wire daily 5-min news plus deep-dive episodes on tools and techniques.",
+            "defcon": "DEF CON conference talk — these are full-length, deep-dive sessions on cutting-edge offensive security research.",
+            "blackhat": "Black Hat conference talk — research-grade presentations from the industry's most technical researchers.",
+            "conferences_youtube": "DEF CON / Black Hat conference talk — deep, full-length research presentations.",
+            "ai_newsletters": "AI Engineer ecosystem — prompt injection, agent exploits, new LLM-bypass techniques are first shared here.",
+            "latent_space": "Latent Space — the AI Engineer community newsletter by swyx, covers agentic systems, evals, and the LLM dev cycle.",
+            "interconnects": "Interconnects (Nathan Lambert) — deep takes on LLM training, RLHF, and frontier model behavior.",
+            "bens_bites": "Ben's Bites — daily AI tools and product roundup, often surfaces new agents + security implications.",
+            "swyx": "swyx.io — the personal blog behind the AI Engineer Summit, covers the LLM engineering discipline.",
+            "nullcon": "Nullcon (India) — flagship Indian offensive-security conference; many top bug bounty hunters debut techniques here.",
+            "hacker_news": "Hacker News front page — security community discussion, often where new CVEs and PoCs are first linked.",
             "nvd": "CVE entry — check the affected versions and references for the full picture.",
             "cisa_kev": "Known-exploited vulnerability — patch this if it affects you.",
             "vendor_rss": "Vendor advisory — check affected versions and patch timeline.",
