@@ -115,7 +115,14 @@ def main(dry_run: bool = False) -> int:
 
     # Stage 5: Deliver — send to Telegram (or dry-run).
     try:
-        send_sync(mp3_path, shownotes_md, pdf_path, script.title, dry_run=dry_run)
+        send_sync(
+            mp3_path,
+            shownotes_md,
+            pdf_path,
+            script.title,
+            dry_run=dry_run,
+            md_path=md_path,
+        )
     except DeliveryError as exc:
         log.error("pipeline.delivery_failed", error=str(exc))
         if not dry_run:
