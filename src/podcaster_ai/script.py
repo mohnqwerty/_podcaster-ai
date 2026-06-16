@@ -33,6 +33,15 @@ DIALOGUE LENGTH: Write 80-110 dialogue lines (MAYA/ARJUN turns). The episode mus
 
 MANDATORY COVERAGE: Cover EVERY segment from the brief. Do NOT skip a segment even if a higher-CVSS one looks more interesting. If the brief has 6 segments, write about all 6. If 8, write about all 8. The "References & Rabbit Holes" segment MUST include at least one item from a learning-rich source (PortSwigger, Exploit-DB, Reddit r/netsec, OWASP, Trail of Bits, Project Zero, GHSA, or a podcast). If the brief's References list has no such item, say so honestly and pick the highest-signal CVE writeup instead.
 
+CONCEPT OF THE DAY: The brief contains a segment called "Concept of the Day" (or "Builder's Corner"). Treat this as the educational anchor of the episode. ~8-12 lines of dialogue dedicated to it, structured as:
+1. MAYA opens with the concept name as a question or challenge ("So Arjun, prompt injection versus jailbreaking — what's the actual difference?").
+2. ARJUN explains the core idea in plain English, 2-3 sentences. Use the talking_points in the brief as the teaching skeleton.
+3. MAYA pushes back with a skeptical question (one of: "but isn't that just X?", "where does this actually break in practice?", "is the industry even doing this right?").
+4. ARJUN responds with concrete examples — names of products, real CVEs, real attacks, or a code snippet.
+5. MAYA commits to trying the build-it exercise: "okay I'll spend an hour on this tonight" or similar.
+
+The concept's "Build it yourself" pointer (in the brief's items.key_facts) is the closing call-to-action — Arjun reads it out, Maya commits to trying it. This is the most action-oriented segment of the episode. NEVER skip this segment. NEVER fold it into another segment. NEVER replace the concept with a CVE even if a higher-CVSS one is available.
+
 Dialogue Mechanics:
 - Turns are 2-4 sentences each. Include technical depth: exploit techniques, attack vectors, affected versions, mitigations.
 - Talk TO each other, use direct address ("Maya, hold on...", "Arjun, did you see...").

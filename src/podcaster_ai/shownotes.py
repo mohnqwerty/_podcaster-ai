@@ -118,6 +118,7 @@ def _get_source_attribution(source: str) -> str:
         "swyx": "swyx.io (AI Engineer)",
         "nullcon": "Nullcon (India)",
         "hacker_news": "Hacker News",
+        "concept_of_the_day": "Concept of the Day (curated)",
     }
     return mapping.get(source, source.replace("_", " ").title())
 
@@ -189,6 +190,18 @@ def generate_shownotes(
         for seg in segments:
             seg_name = seg.get("name") or "Highlights"
             angle = seg.get("angle") or ""
+
+            # The Concept of the Day segment gets a visual callout: a
+            # leading "Today's concept" tagline, then the segment header.
+            # Detect it by checking the segment's items for a concept
+            # source tag (set by concept_pool.py as "concept_of_the_day").
+            is_concept = any(
+                (it.get("source") == "concept_of_the_day")
+                for it in seg.get("items") or []
+            )
+            if is_concept:
+                lines.append("> **Today's concept** — sit back, this is the educational anchor of the episode.\n")
+
             lines.append(f"### {seg_name}\n")
 
             # Opening sentence with angle
@@ -514,6 +527,20 @@ def generate_shownotes(
             "*   Researcher blogs to subscribe to: PortSwigger Research, "
             "Trail of Bits blog, Google Project Zero — deep, technique-rich writeups"
         )
+
+    # Surface the Concept of the Day's "Build it yourself" pointer as the
+    # top item in Learn It, so the action shows up on its own line.
+    for it in raw_items:
+        if it.get("source") == "concept_of_the_day":
+            summary = (it.get("summary") or "")
+            for line in summary.splitlines():
+                if line.lower().startswith("build it yourself"):
+                    build_line = line.split(":", 1)[1].strip() if ":" in line else line
+                    learn_items.insert(
+                        0, f"*   **Concept of the Day — build it:** {build_line}"
+                    )
+                    break
+            break
 
     if learn_items:
         lines.append("## Learn It\n")

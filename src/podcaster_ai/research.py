@@ -20,6 +20,7 @@ from .pipeline.sources import (
     cert_in,
     cisco_talos,
     cisa_kev,
+    concept_pool,
     conferences,
     cyberwire_daily,
     dark_reading,
@@ -240,6 +241,18 @@ If a family returned <3 items, OMIT it (do not invent a placeholder).
 If a family returned 3+ items, you MUST include at least one segment
 that covers them — even if you have to write 8 segments instead of 5.
 
+CONCEPT OF THE DAY: The brief contains exactly one item with
+source="concept_of_the_day". This MUST become its own segment named
+"Concept of the Day" (or very similar — "Builder's Corner", "Concept
+Explainer"). Do NOT fold it into AI Security, Web Security, or any
+other segment. The listener expects a dedicated slot for the concept
+explainer, distinct from the news.
+
+The concept's talking_points (in its summary) and build_it pointer
+are the two ingredients the script uses. Preserve both verbatim in
+the segment's items.key_facts so the script writer doesn't have to
+re-derive them.
+
 CWE CLASS EXTRACTION: For every CVE discussed, include the CWE class
 in the headline when the source material makes it identifiable. The
 preferred format is:
@@ -348,6 +361,7 @@ def _gather_all() -> list[Item]:
         ("ai_newsletters", ai_newsletters.fetch),
         ("nullcon", nullcon.fetch),
         ("hacker_news", hacker_news.fetch),
+        ("concept_of_the_day", concept_pool.fetch),
     ]
     out: list[Item] = []
     for name, fn in fetchers:
@@ -418,7 +432,18 @@ def _dedupe_and_cap(items: list[Item]) -> list[Item]:
     by_source: dict[str, int] = {}
     out: list[Item] = []
 
+    # Concept-of-the-day is always included first so it's never lost
+    # to the cap, regardless of how full the brief is.
     for item in _rank(items):
+        if (item.extra or {}).get("is_concept"):
+            seen.add(_dedupe_key(item))
+            by_source[item.source] = 1
+            out.append(item)
+            break
+
+    for item in _rank(items):
+        if (item.extra or {}).get("is_concept"):
+            continue  # already added above
         key = _dedupe_key(item)
         if key in seen:
             continue
@@ -454,15 +479,23 @@ def _items_to_prompt(items: list[Item]) -> str:
             return {}
         out: dict[str, object] = {}
         for k, v in extra.items():
-            if k in ("cvss", "cve_id", "cwe"):
+            if k in ("cvss", "cve_id", "cwe", "is_concept", "bucket"):
                 out[k] = v
         return out
+
+    def _summary_cap(it: Item) -> int:
+        # Concept items carry talking points + a build-it pointer; let
+        # them through at full length so the LLM has the teaching
+        # skeleton available. News items stay at 200 to keep TPM low.
+        if (it.extra or {}).get("is_concept"):
+            return 2500
+        return 200
 
     serialised = [
         {
             "title": _strip_cvss_vector(it.title[:150]),
             "url": it.url or "",
-            "summary": _strip_cvss_vector(it.summary[:200]),
+            "summary": _strip_cvss_vector(it.summary[: _summary_cap(it)]),
             "source": it.source,
             "published_at": it.published_at.astimezone(timezone.utc).isoformat()
             if it.published_at
